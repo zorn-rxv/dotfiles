@@ -56,11 +56,11 @@ Apply what it recommends. Findings arrive as a numbered decision list, and that 
 
 Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
 
-Two things it needs from here that it cannot see on its own: open a real PR rather than a draft, and carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
+Two things it needs from here that it cannot see on its own: open it as a draft, and carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
 
 ## 6. Work the review feedback
 
-Reviews here come from people, not from an automatic reviewer, so they can arrive hours after the PR opens. Watch the checks and any early comments — **as a `Monitor` command, never as a blocking foreground call**:
+The PR opens as a draft, so no one is asked to review it yet. Reviews come from people once the user marks it ready, and they can arrive hours later. Watch the checks and any early comments — **as a `Monitor` command, never as a blocking foreground call**:
 
 ```
 Monitor(
@@ -89,7 +89,7 @@ A reply is a sentence or two saying what you did or why you did not. "Fixed in `
 
 ## 7. Done
 
-The work is done when checks are green, the branch is pushed, and every review thread that has arrived has a reply. When no review has arrived yet, say so: the PR is waiting on reviewers, not finished.
+The work is done when checks are green, the branch is pushed, and every review thread that has arrived has a reply. While the PR is still a draft, say so, and say that `gh pr ready <n>` asks for peer review. Marking it ready is the user's call, like merging.
 
 Report which comments you applied and which you declined. A summary listing only the fixes hides the judgment calls, and those are the ones worth the user's attention.
 

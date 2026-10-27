@@ -76,12 +76,14 @@ Mechanical checks, no judgment in any of them:
 - **Paragraphs are single unwrapped lines.**
 - **Every local image or video path in the body is absolute and gets an `--attach` for the same file.** An unmatched reference ships as a broken image, and `gh` still exits 0.
 
+Open it as a **draft**, always. A draft says the PR is not yet asking for review, which leaves the user room to tinker before peers are pulled in. Marking it ready with `gh pr ready` is the user's call, never this skill's.
+
 Open it with a body file rather than an inline `--body`, which loses backticks in fish, silently. Add one `--attach` per referenced file; rewriting an existing PR's body takes the same flags on `gh pr edit <n>`:
 
 ```
-gh pr create --title "<title>" --body-file <path> --attach <scratch>/before.png --attach <scratch>/after.png
+gh pr create --draft --title "<title>" --body-file <path> --attach <scratch>/before.png --attach <scratch>/after.png
 ```
 
 A failed attachment still creates the PR and prints its URL, but `gh` exits non-zero. Recover with `gh pr edit <n> --body-file <path>` and every `--attach` again, since the original body file still holds the local paths.
 
-Reviews come from people, so the work is not done when the PR exists. `implement` step 6 owns the review loop and its script. When this skill ran outside `implement`, say the PR is waiting on review rather than reporting it as finished.
+Report the PR as a draft, and say that `gh pr ready <n>` asks for peer review once the user is happy with it. Reviews come from people after that, so the work is not finished when the draft exists. `implement` step 6 owns the review loop and its script.

@@ -33,3 +33,22 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 ```
 
 `bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+
+## Secrets
+
+Nothing in this repo is a credential, and nothing ever should be. Secrets and machine-only settings go in untracked sibling files, such as fish's `local.fish`.
+
+[Betterleaks](https://github.com/betterleaks/betterleaks) runs on every pull request, so a leak shows up before the merge. It scans the working tree *and* the commit history, because this repo is public and git history is permanent — a credential that reaches GitHub is already scraped, and deleting it in the next commit fixes nothing.
+
+A pre-commit hook in `githooks/` runs Betterleaks over the staged changes, so a secret is caught before the commit exists rather than after the push. `bin/link` points `core.hooksPath` at it. It refuses the commit when Betterleaks is not installed, because a scan that did not run must not look like a clean one.
+
+To run every check before you push:
+
+```bash
+brew install betterleaks actionlint shellcheck jq fish
+./bin/check
+```
+
+`bin/check` is the same script CI runs, so there's one definition of "green" instead of two that drift apart. Besides the secret scan, it runs [actionlint](https://github.com/rhysd/actionlint) over the workflow files, [shellcheck](https://www.shellcheck.net) over the scripts in `bin/`, `claude/`, and `githooks/`, `bin/test-link`, which runs `bin/link` against a throwaway home directory, and a syntax check and history-filter test over the fish config. If a tool is missing, it exits without checking anything. Name a section, such as `./bin/check secrets`, to run only that one.
+
+Pull request titles must follow [Conventional Commits](https://www.conventionalcommits.org) with a lowercase subject, such as `ci: add checks`. Dependabot bumps the pinned actions monthly in one grouped pull request.

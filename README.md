@@ -38,7 +38,7 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 
 Nothing in this repo is a credential, and nothing ever should be. Secrets and machine-only settings go in untracked sibling files, such as fish's `local.fish`.
 
-[Betterleaks](https://github.com/betterleaks/betterleaks) runs on every pull request, so a leak shows up before the merge. It scans the working tree *and* the commit history, because this repo is public and git history is permanent — a credential that reaches GitHub is already scraped, and deleting it in the next commit fixes nothing.
+[Betterleaks](https://github.com/betterleaks/betterleaks) runs on every pull request as a required check, so a leak blocks the merge. It scans the working tree *and* the commit history, because this repo is public and git history is permanent — a credential that reaches GitHub is already scraped, and deleting it in the next commit fixes nothing.
 
 A pre-commit hook in `githooks/` runs Betterleaks over the staged changes, so a secret is caught before the commit exists rather than after the push. `bin/link` points `core.hooksPath` at it. It refuses the commit when Betterleaks is not installed, because a scan that did not run must not look like a clean one.
 

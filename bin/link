@@ -58,6 +58,12 @@ link_path "$repo_root/claude/hooks" "$HOME/.claude/hooks" 'hooks'
 link_path "$repo_root/fish/config.fish" \
   "$HOME/.config/fish/config.fish" 'fish/config.fish'
 
+# Zed's settings file, not ~/.config/zed itself: Zed keeps its rules database
+# there. Zed resolves the symlink before it saves. A change made in its UI
+# lands here and leaves the link in place.
+link_path "$repo_root/zed/settings.json" \
+  "$HOME/.config/zed/settings.json" 'zed/settings.json'
+
 # zsh still runs the shell commands of Claude Code and of GUI apps like Zed.
 link_path "$repo_root/zsh/zshenv" "$HOME/.zshenv" 'zsh/zshenv'
 

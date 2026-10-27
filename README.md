@@ -18,6 +18,10 @@ My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homeb
 
 Secrets and machine-only settings go in `~/.config/fish/local.fish`, which `config.fish` loads if it exists. It lives outside the repo, so it cannot be committed.
 
+### Zed settings — `zed/`
+
+My [Zed](https://zed.dev) `settings.json`. Its `auto_install_extensions` list makes a fresh machine install the extensions the language-server settings rely on. It also turns off Zed's telemetry. The editor font is [MonoLisa](https://www.monolisa.dev), which is licensed and not in this repo, so install its OTF files by hand. Only that file is tracked. My theme is a built-in, so `themes/` is empty and not tracked. The rules database in `~/.config/zed/prompts/` is binary and stays out.
+
 ### zsh environment — `zsh/zshenv`
 
 Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
@@ -28,4 +32,4 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 ~/Repos/dotfiles/bin/link
 ```
 
-`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/` and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.

@@ -58,6 +58,8 @@ link_path "$repo_root/claude/hooks" "$HOME/.claude/hooks" 'hooks'
 link_path "$repo_root/fish/config.fish" \
   "$HOME/.config/fish/config.fish" 'fish/config.fish'
 
+# zsh still runs the shell commands of Claude Code and of GUI apps like Zed.
+link_path "$repo_root/zsh/zshenv" "$HOME/.zshenv" 'zsh/zshenv'
 
 printf '\n%d linked, %d skipped\n' "$linked" "$skipped"
 

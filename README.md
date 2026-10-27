@@ -18,10 +18,14 @@ My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homeb
 
 Secrets and machine-only settings go in `~/.config/fish/local.fish`, which `config.fish` loads if it exists. It lives outside the repo, so it cannot be committed.
 
+### zsh environment — `zsh/zshenv`
+
+Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
+
 ## Setup
 
 ```bash
 ~/Repos/dotfiles/bin/link
 ```
 
-`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/` and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.

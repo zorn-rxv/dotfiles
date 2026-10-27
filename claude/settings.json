@@ -1,0 +1,52 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "enabledPlugins": {
+    "cc-plugin-you-should-know@builtin": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "feedbackSurveyRate": 0,
+  "model": "opus[1m]",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/hexdocs-subdomain.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:hexdocs.pm)",
+      "WebFetch(domain:*.hexdocs.pm)",
+      "Bash(/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --screenshot=*)"
+    ],
+    "defaultMode": "auto",
+    "deny": [
+      "AskUserQuestion"
+    ]
+  },
+  "statusLine": {
+    "command": "bash ~/.claude/statusline-command.sh",
+    "type": "command"
+  },
+  "theme": "dark",
+  "tui": "fullscreen",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  }
+}

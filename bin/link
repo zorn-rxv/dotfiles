@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# Symlink tracked config from this repo into the home directory.
+#
+# Idempotent: safe to re-run. Refuses to touch anything that already exists as
+# a real file or directory, so a bad run can't eat config that isn't tracked
+# here yet.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+linked=0
+skipped=0
+
+# One linker for every kind of dotfile, so adding a category is a call site
+# rather than a second copy of the "is it already ours?" logic. A real file
+# or directory at the destination is left alone and reported: it is config
+# that predates this repo, and clobbering it would destroy the only copy.
+link_path() {
+  local src="$1" dest="$2" label="$3"
+
+  mkdir -p "$(dirname "$dest")"
+
+  if [ -L "$dest" ]; then
+    if [ "$(readlink "$dest")" = "$src" ]; then
+      printf '  ok       %s\n' "$label"
+    else
+      ln -sfn "$src" "$dest"
+      printf '  relinked %s\n' "$label"
+      linked=$((linked + 1))
+    fi
+  elif [ -e "$dest" ]; then
+    printf '  SKIP     %s (real file or directory already at %s)\n' "$label" "$dest"
+    skipped=$((skipped + 1))
+  else
+    ln -s "$src" "$dest"
+    printf '  linked   %s\n' "$label"
+    linked=$((linked + 1))
+  fi
+}
+
+# Global instructions every Claude Code session loads, regardless of project.
+link_path "$repo_root/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md" 'CLAUDE.md'
+# Claude Code writes through the link, so a change made in its UI shows up
+# here as a diff.
+link_path "$repo_root/claude/settings.json" "$HOME/.claude/settings.json" 'settings.json'
+link_path "$repo_root/claude/keybindings.json" \
+  "$HOME/.claude/keybindings.json" 'keybindings.json'
+link_path "$repo_root/claude/statusline-command.sh" \
+  "$HOME/.claude/statusline-command.sh" 'statusline-command.sh'
+# settings.json registers these scripts as hooks. Claude Code writes nothing in
+# ~/.claude/hooks, so the whole directory can be a link.
+link_path "$repo_root/claude/hooks" "$HOME/.claude/hooks" 'hooks'
+
+printf '\n%d linked, %d skipped\n' "$linked" "$skipped"
+
+if [ "$skipped" -gt 0 ]; then
+  printf '\nSkipped entries already exist outside this repo. Move them in and\n'
+  printf 'delete the original before re-running, or leave them as they are.\n'
+fi

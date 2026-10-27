@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+# Run bin/link against a throwaway HOME and check what it links.
+#
+# bin/link exists to put tracked config in place without ever destroying
+# config that is not tracked yet. A regression there deletes the only copy of
+# a file without a word, so each outcome gets a case here rather than a
+# one-time manual check. It also checks that every hook settings.json
+# registers resolves to a linked script.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+home="$(mktemp -d)"
+trap 'rm -rf "$home"' EXIT
+
+out="$home/link-output"
+failed=0
+
+# Each destination bin/link owns, and the tracked file it points at.
+links=(
+  ".claude/CLAUDE.md=claude/CLAUDE.md"
+  ".claude/settings.json=claude/settings.json"
+  ".claude/keybindings.json=claude/keybindings.json"
+  ".claude/statusline-command.sh=claude/statusline-command.sh"
+  ".claude/hooks=claude/hooks"
+  ".config/fish/config.fish=fish/config.fish"
+  ".config/zed/settings.json=zed/settings.json"
+  ".zshenv=zsh/zshenv"
+)
+
+run_link() {
+  HOME="$home" "$repo_root/bin/link" >"$out" 2>&1
+}
+
+points_at() {
+  [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]
+}
+
+assert() {
+  local label="$1"
+  shift
+  if "$@" >/dev/null 2>&1; then
+    printf '  pass  %s\n' "$label"
+  else
+    printf '  FAIL  %s\n' "$label"
+    sed 's/^/        /' "$out"
+    failed=1
+  fi
+}
+
+run_link
+for entry in "${links[@]}"; do
+  dest="${entry%%=*}" src="${entry#*=}"
+  assert "a fresh HOME links $dest" points_at "$home/$dest" "$repo_root/$src"
+done
+assert 'a fresh HOME skips nothing' grep -q ' 0 skipped$' "$out"
+# Without it the pre-commit secret scan never runs, and nothing says so.
+assert 'core.hooksPath points at githooks' \
+  test "$(git -C "$repo_root" config core.hooksPath)" = githooks
+
+run_link
+assert 'a re-run links nothing' grep -q '^0 linked, 0 skipped$' "$out"
+
+# A hook command that names a missing file fails on every WebFetch, so check
+# that each one resolves to an executable after the link.
+hook_commands="$(jq -r '.hooks.PreToolUse[]?.hooks[]?.command' "$repo_root/claude/settings.json")"
+assert 'settings.json registers a PreToolUse hook' test -n "$hook_commands"
+while IFS= read -r command; do
+  [ -n "$command" ] || continue
+  assert "hook resolves: $command" test -x "${command/#\~/$home}"
+done <<<"$hook_commands"
+
+stray="$home/elsewhere"
+touch "$stray"
+rm "$home/.zshenv"
+ln -s "$stray" "$home/.zshenv"
+run_link
+assert 'a link pointing elsewhere is relinked' grep -q '^  relinked zsh/zshenv' "$out"
+assert 'a relinked entry points into the repo' points_at "$home/.zshenv" "$repo_root/zsh/zshenv"
+
+rm "$home/.config/zed/settings.json"
+printf 'untracked\n' >"$home/.config/zed/settings.json"
+run_link
+assert 'a real file is skipped' grep -q '^  SKIP     zed/settings.json' "$out"
+assert 'a real file is left alone' grep -qx 'untracked' "$home/.config/zed/settings.json"
+assert 'a skip is counted' grep -q ' 1 skipped$' "$out"
+
+if [ "$failed" -ne 0 ]; then
+  exit 1
+fi

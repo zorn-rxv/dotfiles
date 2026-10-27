@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+#
+# Run the checks CI runs, on demand.
+#
+# The GitHub Actions workflow invokes this exact script, so there is one
+# definition of "green" instead of two that drift apart. If this passes
+# locally, the pull request comes back green.
+#
+# Name one or more sections to run only those; with none named, all run.
+# Each CI job runs one section, so the pull request page names the check
+# that failed. The sections are:
+#
+#   secrets    — Betterleaks over both the working tree and the commit history
+#                reachable from HEAD. This repo is public and git history is
+#                permanent, so a credential that lands in a commit is already
+#                leaked even if the next commit removes it.
+#   workflows  — actionlint over .github/workflows. Workflow YAML has no other
+#                safety net: a typo in an expression or a bad runs-on label is
+#                only discovered when the workflow runs, which for a
+#                push-triggered job means after the mistake is already on
+#                main. It also lints `run:` blocks via shellcheck, which is
+#                what actually guards the tool install scripts in ci.yml.
+#   shell      — shellcheck over every bash script in bin/, claude/, and
+#                githooks. actionlint covers the shell inside workflow `run:`
+#                blocks and nothing else; a hook script is otherwise wholly
+#                unchecked. (Written this way round because a comment
+#                beginning with the tool's own name parses as a shellcheck
+#                directive.) It also runs bin/test-check. That script checks
+#                that each section runs alone and asks only for its own tool.
+#                It then runs bin/test-hexdocs-hook, because a wrong URL
+#                rewrite sends every Elixir doc fetch to the wrong page
+#                without an error.
+#   link       — bin/test-link, which runs bin/link against a throwaway HOME.
+#                bin/link must never overwrite a real file it finds in place,
+#                and nothing else would notice if it did. Each hook
+#                settings.json registers must also resolve to a linked script.
+#   fish       — fish --no-execute over fish/config.fish, then
+#                bin/test-fish-history. A syntax error there breaks every new
+#                shell, and a history filter that misses a secret leaves it
+#                on disk without a word.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+usage() {
+  printf 'usage: bin/check [section...]\n\n' >&2
+  printf 'Sections: %s\n' "${all_sections[*]}" >&2
+  printf 'With no section named, every section runs.\n' >&2
+}
+
+all_sections=(secrets workflows shell link fish)
+
+contains() {
+  local needle="$1" item
+  shift
+  for item in "$@"; do
+    [ "$item" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+if [ "$#" -eq 0 ]; then
+  sections=("${all_sections[@]}")
+else
+  sections=()
+  for section in "$@"; do
+    if ! contains "$section" "${all_sections[@]}"; then
+      printf 'check: unknown section %s\n\n' "$section" >&2
+      usage
+      exit 2
+    fi
+    sections+=("$section")
+  done
+fi
+
+selected() {
+  contains "$1" "${sections[@]}"
+}
+
+# Every tool is checked up front and reported together, so a fresh machine
+# learns everything it is missing in one run instead of one tool per attempt.
+# Only the selected sections' tools are required.
+missing=0
+
+require() {
+  local tool="$1" install="$2" docs="$3"
+  command -v "$tool" >/dev/null 2>&1 && return 0
+
+  if [ "$missing" -eq 0 ]; then
+    printf 'check: required tools are not on PATH, so nothing was checked.\n\n' >&2
+  fi
+  printf '  %s\n' "$install" >&2
+  printf '      %s\n\n' "$docs" >&2
+  missing=1
+}
+
+selected secrets && require betterleaks 'brew install betterleaks' \
+  'https://github.com/betterleaks/betterleaks#installation'
+selected workflows && require actionlint 'brew install actionlint' \
+  'https://github.com/rhysd/actionlint/blob/main/docs/install.md'
+selected shell && require shellcheck 'brew install shellcheck' \
+  'https://github.com/koalaman/shellcheck#installing'
+# bin/test-link reads the hooks out of claude/settings.json with jq. The
+# hexdocs hook parses its input with jq, so its test does too.
+{ selected shell || selected link; } && require jq 'brew install jq' \
+  'https://jqlang.org/download/'
+
+selected fish && require fish 'brew install fish' \
+  'https://fishshell.com/docs/current/#installation'
+
+[ "$missing" -eq 0 ] || exit 127
+
+failures=()
+
+# --verbose is what prints the file, line, and rule for each finding; without
+# it Betterleaks reports only a count, which is useless for fixing anything.
+# --redact keeps the matched secret itself out of terminal scrollback and out
+# of the public Actions log.
+run_scan() {
+  local label="$1"
+  shift
+
+  printf '==> %s\n' "$label"
+
+  local status=0
+  betterleaks "$@" --redact --verbose --no-banner || status=$?
+
+  case "$status" in
+    0) ;;
+    1) return 1 ;;
+    *)
+      printf 'check: betterleaks exited %d — that is a tool error, not a clean scan.\n' "$status" >&2
+      return 1
+      ;;
+  esac
+}
+
+check_secrets() {
+  local failed=0
+  run_scan 'betterleaks: working tree' dir . || failed=1
+  printf '\n'
+  run_scan 'betterleaks: commit history' git . || failed=1
+  return "$failed"
+}
+
+check_workflows() {
+  printf '==> actionlint: workflow YAML\n'
+  # No path arguments, so actionlint discovers .github/workflows itself and a
+  # new workflow is covered the moment it is added. -color because CI is not a
+  # TTY and would otherwise emit unhighlighted walls of text.
+  actionlint -color || return 1
+  printf 'No workflow problems found.\n'
+}
+
+check_shell() {
+  printf '==> shellcheck: shell scripts\n'
+  # Found by shebang rather than named, so a script is covered the moment it is
+  # added. Hook scripts in claude/hooks and githooks have no other check at all.
+  local shell_scripts=() candidate
+  while IFS= read -r candidate; do
+    if head -n 1 "$candidate" | grep -q '^#!.*bash'; then
+      shell_scripts+=("$candidate")
+    fi
+  done < <(find bin claude githooks -type f -not -name '*.py' -not -name '*.md' | sort)
+  if [ "${#shell_scripts[@]}" -gt 0 ]; then
+    shellcheck "${shell_scripts[@]}" || return 1
+    printf 'No problems found in %d scripts.\n' "${#shell_scripts[@]}"
+  fi
+
+  # Called from a || list, so set -e is off here: each test's status is kept
+  # by hand, or only the last one would count.
+  local failed=0
+  printf '\n==> test-check: section selection\n'
+  ./bin/test-check || failed=1
+
+  printf '\n==> test-hexdocs-hook: WebFetch URL rewrite\n'
+  ./bin/test-hexdocs-hook || failed=1
+  return "$failed"
+}
+
+check_link() {
+  printf '==> test-link: symlinks\n'
+  ./bin/test-link
+}
+
+check_fish() {
+  printf '==> fish: config syntax\n'
+  fish --no-execute fish/config.fish || return 1
+  printf 'No syntax errors found.\n'
+
+  printf '\n==> test-fish-history: history filter\n'
+  ./bin/test-fish-history
+}
+
+advise() {
+  case "$1" in
+    secrets)
+      printf 'A Betterleaks finding in the working tree means edit the file. A finding\n' >&2
+      printf 'in a commit means rewriting history AND rotating the secret, because\n' >&2
+      printf 'if it ever reached GitHub it has already been scraped.\n' >&2
+      printf 'False positive? Annotate the line with a betterleaks:allow comment.\n' >&2
+      ;;
+    workflows)
+      printf 'An actionlint finding means the workflow YAML is wrong — fix it here\n' >&2
+      printf 'rather than discovering it on a run against main.\n' >&2
+      ;;
+    shell)
+      printf 'A shellcheck finding means a script in the repo is wrong — fix it\n' >&2
+      printf 'before something runs it. A test-check failure means a CI job\n' >&2
+      printf 'would run the wrong section, or ask for a tool it never installed.\n' >&2
+      printf 'A test-hexdocs-hook failure means Elixir doc fetches would land on\n' >&2
+      printf 'the wrong URL.\n' >&2
+      ;;
+    link)
+      printf 'A test-link failure means bin/link could overwrite a real file, or\n' >&2
+      printf 'settings.json registers a hook with no script behind it.\n' >&2
+      printf 'Fix bin/link before running it on a real HOME.\n' >&2
+      ;;
+    fish)
+      printf 'A syntax error means every new fish shell would fail to load its\n' >&2
+      printf 'config. A test-fish-history failure means a secret could reach\n' >&2
+      printf 'fish_history, or a harmless command would be kept out of it.\n' >&2
+      ;;
+  esac
+  printf '\n' >&2
+}
+
+for section in "${sections[@]}"; do
+  "check_$section" || failures+=("$section")
+  printf '\n'
+done
+
+if [ "${#failures[@]}" -gt 0 ]; then
+  printf 'FAILED: %s. Do not push.\n\n' "${failures[*]}" >&2
+  for section in "${failures[@]}"; do
+    advise "$section"
+  done
+  exit 1
+fi
+
+printf 'All checks passed.\n'

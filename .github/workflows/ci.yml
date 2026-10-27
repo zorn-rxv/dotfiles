@@ -1,0 +1,124 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  # One job per bin/check section, so the pull request page names the check
+  # that failed. Each job name is a required-status-check context on the
+  # protect-main ruleset. Renaming or adding a job means updating the ruleset
+  # too, or the check silently stops being required.
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # bin/check scans commit history, not just the working tree, so the
+          # default depth-1 checkout would leave it nothing to look at.
+          fetch-depth: 0
+
+      # Pinned to a version and a digest. This is the job whose whole purpose
+      # is supply-chain hygiene, so it does not pipe an unverified tarball
+      # into tar. Bumping the version means bumping the checksum with it —
+      # take both from the release's checksums.txt.
+      - name: Install betterleaks
+        env:
+          BETTERLEAKS_VERSION: 1.9.0
+          BETTERLEAKS_SHA256: f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7
+        run: |
+          set -euo pipefail
+          tarball="betterleaks_${BETTERLEAKS_VERSION}_linux_x64.tar.gz"
+          mkdir -p "$RUNNER_TEMP/betterleaks"
+          curl -sSfL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VERSION}/${tarball}"
+          echo "$BETTERLEAKS_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/betterleaks" betterleaks
+          echo "$RUNNER_TEMP/betterleaks" >> "$GITHUB_PATH"
+
+      - name: Run checks
+        run: ./bin/check secrets
+
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned and checksum-verified the same way as Betterleaks in the secrets
+      # job, from the release's actionlint_<version>_checksums.txt. The runner
+      # already has shellcheck, which actionlint picks up off PATH to lint
+      # `run:` blocks.
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          curl -sSfL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/actionlint" actionlint
+          echo "$RUNNER_TEMP/actionlint" >> "$GITHUB_PATH"
+
+      - name: Run checks
+        run: ./bin/check workflows
+
+  # shellcheck and jq come with the runner image, so these two jobs install
+  # nothing.
+  shell:
+    name: shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run checks
+        run: ./bin/check shell
+
+  link:
+    name: link
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run checks
+        run: ./bin/check link
+
+  fish:
+    name: fish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Ubuntu's apt fish predates fish_should_add_to_history, so this takes
+      # the static build from the release instead. fish publishes no checksums
+      # file, so the digest is our own, taken from the tarball when the
+      # version was pinned. Bumping the version means downloading the new
+      # tarball and running sha256sum over it.
+      - name: Install fish
+        env:
+          FISH_VERSION: 4.9.3
+          FISH_SHA256: 8f643d10ad1abb0ef7072764c01ceb5cf61b2d373fda400cf60f0bad69b7e095
+        run: |
+          set -euo pipefail
+          tarball="fish-${FISH_VERSION}-linux-x86_64.tar.xz"
+          mkdir -p "$RUNNER_TEMP/fish"
+          curl -sSfL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/fish-shell/fish-shell/releases/download/${FISH_VERSION}/${tarball}"
+          echo "$FISH_SHA256  $RUNNER_TEMP/$tarball" | sha256sum --check --strict
+          tar -xJf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/fish" fish
+          echo "$RUNNER_TEMP/fish" >> "$GITHUB_PATH"
+
+      - name: Run checks
+        run: ./bin/check fish

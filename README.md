@@ -12,6 +12,14 @@ The instructions every Claude Code session loads no matter which project it's in
 
 My Claude Code `settings.json`, `keybindings.json`, status line script, and the `hooks/` the settings register. The status line and hooks need `jq`.
 
+### Claude Code skills — `claude/skills/`
+
+[Agent Skills](https://agentskills.io) I maintain. Each is a directory with a `SKILL.md`, plus optional `scripts/` and `reference/` material. They come from my personal [zorn/dotfiles](https://github.com/zorn/dotfiles/tree/main/claude/skills), minus the ones built around worktrunk.
+
+Most began as forks of [mattpocock/skills](https://github.com/mattpocock/skills) and were reshaped to fit how I work. Every forked skill records where it came from in its `metadata` frontmatter, and `claude/skills/LICENSE` carries the upstream notice.
+
+A skill with malformed frontmatter fails silently. It never activates, and nothing reports an error. So `bin/check-skills` validates every skill against the [Agent Skills spec](https://agentskills.io/specification) on each pull request. It also checks that relative links resolve and that bundled Python compiles.
+
 ### fish config — `fish/`
 
 My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homebrew, Docker Desktop's CLI, and libpq's `psql`. It keeps commands that carry a secret, such as a token assignment or an auth header, out of fish history. It also sets `DO_NOT_TRACK` to opt out of CLI telemetry. Only that one file is tracked. Fish writes `fish_variables` into the same directory, and installers add their own generated functions and completions there. Those files are machine state, so they stay out of the repo.
@@ -32,7 +40,7 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 ~/Repos/dotfiles/bin/link
 ```
 
-`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`. It also links `fish/config.fish` into `~/.config/fish/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`, and each skill into `~/.claude/skills/`. It also links `fish/config.fish` into `~/.config/fish/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Re-run it after adding a skill. It reports, but does not delete, a link left behind by a renamed or removed skill. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
 
 ## Secrets
 
@@ -45,10 +53,10 @@ A pre-commit hook in `githooks/` runs Betterleaks over the staged changes, so a 
 To run every check before you push:
 
 ```bash
-brew install betterleaks actionlint shellcheck jq fish
+brew install betterleaks actionlint shellcheck python jq fish
 ./bin/check
 ```
 
-`bin/check` is the same script CI runs, so there's one definition of "green" instead of two that drift apart. Besides the secret scan, it runs [actionlint](https://github.com/rhysd/actionlint) over the workflow files, [shellcheck](https://www.shellcheck.net) over the scripts in `bin/`, `claude/`, and `githooks/`, `bin/test-link`, which runs `bin/link` against a throwaway home directory, and a syntax check and history-filter test over the fish config. If a tool is missing, it exits without checking anything. Name a section, such as `./bin/check secrets`, to run only that one.
+`bin/check` is the same script CI runs, so there's one definition of "green" instead of two that drift apart. Besides the secret scan, it runs [actionlint](https://github.com/rhysd/actionlint) over the workflow files, [shellcheck](https://www.shellcheck.net) over the scripts in `bin/`, `claude/`, and `githooks/`, `bin/check-skills` over the skills, `bin/test-link`, which runs `bin/link` against a throwaway home directory, and a syntax check and history-filter test over the fish config. If a tool is missing, it exits without checking anything. Name a section, such as `./bin/check secrets`, to run only that one.
 
 Pull request titles must follow [Conventional Commits](https://www.conventionalcommits.org) with a lowercase subject, such as `ci: add checks`. Dependabot bumps the pinned actions monthly in one grouped pull request.

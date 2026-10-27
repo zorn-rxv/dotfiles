@@ -6,7 +6,8 @@
 # config that is not tracked yet. A regression there deletes the only copy of
 # a file without a word, so each outcome gets a case here rather than a
 # one-time manual check. It also checks that every hook settings.json
-# registers resolves to a linked script.
+# registers resolves to a linked script, and that a dangling skill link is
+# reported.
 
 set -euo pipefail
 
@@ -29,6 +30,12 @@ links=(
   ".config/zed/settings.json=zed/settings.json"
   ".zshenv=zsh/zshenv"
 )
+
+# Each skill gets its own link, so check them all rather than one sample.
+for src in "$repo_root/claude/skills"/*/; do
+  name="$(basename "$src")"
+  links+=(".claude/skills/$name=claude/skills/$name")
+done
 
 run_link() {
   HOME="$home" "$repo_root/bin/link" >"$out" 2>&1
@@ -55,13 +62,13 @@ for entry in "${links[@]}"; do
   dest="${entry%%=*}" src="${entry#*=}"
   assert "a fresh HOME links $dest" points_at "$home/$dest" "$repo_root/$src"
 done
-assert 'a fresh HOME skips nothing' grep -q ' 0 skipped$' "$out"
+assert 'a fresh HOME skips nothing' grep -q ' 0 skipped, 0 orphaned$' "$out"
 # Without it the pre-commit secret scan never runs, and nothing says so.
 assert 'core.hooksPath points at githooks' \
   test "$(git -C "$repo_root" config core.hooksPath)" = githooks
 
 run_link
-assert 'a re-run links nothing' grep -q '^0 linked, 0 skipped$' "$out"
+assert 'a re-run links nothing' grep -q '^0 linked, 0 skipped, 0 orphaned$' "$out"
 
 # A hook command that names a missing file fails on every WebFetch, so check
 # that each one resolves to an executable after the link.
@@ -85,7 +92,14 @@ printf 'untracked\n' >"$home/.config/zed/settings.json"
 run_link
 assert 'a real file is skipped' grep -q '^  SKIP     zed/settings.json' "$out"
 assert 'a real file is left alone' grep -qx 'untracked' "$home/.config/zed/settings.json"
-assert 'a skip is counted' grep -q ' 1 skipped$' "$out"
+assert 'a skip is counted' grep -q ' 1 skipped, 0 orphaned$' "$out"
+
+# A skill renamed or removed here leaves a dangling link in ~/.claude/skills.
+ln -s "$repo_root/claude/skills/removed-skill" "$home/.claude/skills/removed-skill"
+run_link
+assert 'a dangling skill link is reported' grep -q '^  orphan   skills/removed-skill' "$out"
+assert 'an orphan is counted' grep -q ' 1 orphaned$' "$out"
+assert 'an orphan is left in place' test -L "$home/.claude/skills/removed-skill"
 
 if [ "$failed" -ne 0 ]; then
   exit 1

@@ -33,6 +33,7 @@ links=(
 
 # Each skill gets its own link, so check them all rather than one sample.
 for src in "$repo_root/claude/skills"/*/; do
+  [ -d "$src" ] || continue
   name="$(basename "$src")"
   links+=(".claude/skills/$name=claude/skills/$name")
 done

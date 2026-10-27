@@ -49,6 +49,12 @@ set -uo pipefail
 
 PR="${1:?usage: watch-pr-feedback.sh <pr-number> [repo]  (WATCH_* env vars: see the header of this file)}"
 REPO="${2:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
+# Without this, an empty REPO polls repos//pulls/... forever, and every failed
+# call reads the same as "no feedback yet".
+if [ -z "$REPO" ]; then
+  printf 'watch-pr-feedback: cannot tell which repo this is; pass it as the second argument\n' >&2
+  exit 2
+fi
 INTERVAL="${WATCH_INTERVAL:-30}"
 FAST_INTERVAL="${WATCH_FAST_INTERVAL:-10}"
 FAST_WINDOW="${WATCH_FAST_WINDOW:-120}"
@@ -133,10 +139,12 @@ while true; do
     # A crashed or cancelled job must not read as silence, so both are
     # reported. "skipping" is not: a skipped check is almost always a
     # deliberately path-filtered or conditional job, and on a repo with any
-    # `if:`-gated workflow it would bury the real feedback every poll.
+    # `if:`-gated workflow it would bury the real feedback every poll. The link
+    # names the run, so a check that fails again after a fix push is reported
+    # again rather than matching the earlier failure's id.
     printf '%s' "$checks_json" |
       jq -r '.[] | select(.bucket == "fail" or .bucket == "cancel")
-             | "k\(.name)-\(.bucket)|CHECK \(.bucket | ascii_upcase) — \(.name) — \(.link)"' 2>/dev/null
+             | "k\(.name)-\(.bucket)-\(.link)|CHECK \(.bucket | ascii_upcase) — \(.name) — \(.link)"' 2>/dev/null
   } >"$ITEMS"
 
   # Redirected rather than piped, so the counter survives the loop instead of

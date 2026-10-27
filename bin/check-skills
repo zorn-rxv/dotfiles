@@ -63,13 +63,14 @@ SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 # British forms that copy ported from upstream keeps bringing in. A list, not a
 # rule: a blanket `-ise` pattern would flag rise, promise, and otherwise. Text
 # in backticks is skipped, which is the escape hatch for a quotation or an
-# identifier that keeps its own spelling.
+# identifier that keeps its own spelling. `analyses` is left out because it is
+# also the US plural of analysis, and a list cannot tell the noun from the verb.
 BRITISH_RE = re.compile(
     r"\b(?:"
     r"(?:organi|recogni|normali|prioriti|summari|minimi|maximi|reali|optimi|initiali|"
     r"seriali|customi|standardi|categori|utili|speciali|apologi|memori|visuali|"
     r"authori|finali)s(?:e|ed|es|ing|ation|ations|er|ers)"
-    r"|analys(?:e|ed|es|ing)"
+    r"|analys(?:e|ed|ing)"
     r"|(?:behavio|colo|favo|flavo|hono|humo|labo|neighbo|rumo|endeavo|savo|vapo)ur(?:s|ed|ing|al|able)?"
     r"|judgements?|defence|licence|programmes?|catalogues?|centres?"
     r"|travell(?:ed|ing)|cancell(?:ed|ing)|modell(?:ed|ing)|labell(?:ed|ing)"
@@ -465,6 +466,11 @@ CASES = [
     (
         "british-quoted",
         {"SKILL.md": "---\nname: british-quoted\ndescription: A thing.\n---\n\nThe `behaviour` key.\n\n> Upstream says behaviour.\n\nOtherwise, promise to rise.\n\nSee [the guide](https://example.com/behaviour) or https://example.com/colour.\n"},
+        [],
+    ),
+    (
+        "us-plural",
+        {"SKILL.md": "---\nname: us-plural\ndescription: A thing.\n---\n\nCompare the two analyses.\n"},
         [],
     ),
     ("empty", {"README.md": "not a skill\n"}, ["no SKILL.md"]),

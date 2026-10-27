@@ -22,15 +22,14 @@
 #                what actually guards the tool install scripts in ci.yml.
 #   shell      — shellcheck over every bash script in bin/, claude/, and
 #                githooks. actionlint covers the shell inside workflow `run:`
-#                blocks and nothing else; a script shipped inside a skill or as
-#                a hook is otherwise wholly
-#                unchecked. (Written this way round because a comment
-#                beginning with the tool's own name parses as a shellcheck
-#                directive.) It also runs bin/test-check. That script checks
-#                that each section runs alone and asks only for its own tool.
-#                It then runs bin/test-hexdocs-hook, because a wrong URL
-#                rewrite sends every Elixir doc fetch to the wrong page
-#                without an error.
+#                blocks and nothing else; a script shipped inside a skill or
+#                as a hook is otherwise wholly unchecked. (Written this way
+#                round because a comment beginning with the tool's own name
+#                parses as a shellcheck directive.) It also runs
+#                bin/test-check. That script checks that each section runs
+#                alone and asks only for its own tool. It then runs
+#                bin/test-hexdocs-hook, because a wrong URL rewrite sends
+#                every Elixir doc fetch to the wrong page without an error.
 #   skills     — bin/check-skills over claude/skills. A skill whose
 #                frontmatter is malformed never activates and never says so,
 #                which makes it the failure most worth automating.

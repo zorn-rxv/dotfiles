@@ -56,6 +56,9 @@ for entry in "${links[@]}"; do
   assert "a fresh HOME links $dest" points_at "$home/$dest" "$repo_root/$src"
 done
 assert 'a fresh HOME skips nothing' grep -q ' 0 skipped$' "$out"
+# Without it the pre-commit secret scan never runs, and nothing says so.
+assert 'core.hooksPath points at githooks' \
+  test "$(git -C "$repo_root" config core.hooksPath)" = githooks
 
 run_link
 assert 'a re-run links nothing' grep -q '^0 linked, 0 skipped$' "$out"

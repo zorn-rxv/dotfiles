@@ -1,6 +1,6 @@
 ---
 name: diff-review
-description: Review the diff since a fixed point along five axes — Standards (does it follow this repo's documented standards?), Spec (does it do what the originating issue asked?), Prose (are the comments and docs grammatical, and no longer than they need to be?), Tests (whenever the diff touches code — do the tests flake, do they observe the new behavior, do they cost more than they need?), and Database (only when the diff touches the DB — migration safety, transaction consistency, query performance). Use when the user wants changes reviewed, or asks to "review since X".
+description: Review the diff since a fixed point along five axes — Standards (does it follow this repo's documented standards?), Spec (does it do what the originating Asana task asked?), Prose (are the comments and docs grammatical, and no longer than they need to be?), Tests (whenever the diff touches code — do the tests flake, do they observe the new behavior, do they cost more than they need?), and Database (only when the diff touches the DB — migration safety, transaction consistency, query performance). Use when the user wants changes reviewed, or asks to "review since X".
 license: MIT
 metadata:
   forked-from: https://github.com/mattpocock/skills
@@ -14,7 +14,7 @@ metadata:
 Multi-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 - **Standards** — does the code conform to this repo's documented coding standards?
-- **Spec** — does the code faithfully implement the originating issue / PRD / spec?
+- **Spec** — does the code faithfully implement the originating Asana task / PRD / spec?
 - **Prose** — are the comments and docs grammatical, and does every function doc and inline comment earn its length?
 - **Tests** — whenever the diff touches code: do the tests flake, do they observe the new behavior, and do they cost more than the behavior needs?
 - **Database** — only when the diff touches the DB: are migrations safe to deploy, are dependent writes transactional, and do queries scale?
@@ -35,7 +35,7 @@ Before going further, confirm the fixed point resolves (`git rev-parse <fixed-po
 
 Look for the originating spec, in this order:
 
-1. Issue references in the commit messages or branch name (`#123`, `Closes #45`, a `zorn/issue-123-…` branch) — fetch with `gh issue view <n> --comments`.
+1. An Asana task URL on the first line of the branch's PR body (`gh pr view --json body`) or in a commit message. Read the task and every comment, as the global Asana rule says.
 2. A path the user passed as an argument.
 3. A PRD/spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
@@ -188,7 +188,7 @@ End with one line per axis: how many findings, and how many are recommended 🔴
 A change can pass one axis and fail another:
 
 - Code that follows every standard but implements the wrong thing → **Standards pass, Spec fail.**
-- Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
+- Code that does exactly what the task asked but breaks the project's conventions → **Spec pass, Standards fail.**
 - Code that is correct and on-spec but buries its intent in verbose or ungrammatical comments → **Standards and Spec pass, Prose fail.**
 - Code that is clean, on-spec, and clearly written but ships with a test that sleeps its way to green → **the other three pass, Tests fails.**
 - Code that is clean, on-spec, clearly written, and honestly tested but N+1s every request under load → **the other four pass, Database fails.**

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Emit one line per new PR review comment, review summary, or issue comment,
-# and one per check that fails or is cancelled, so a crashed job does not read
-# as silence. Run it after opening a PR to catch the automatic Copilot review
-# as it lands.
+# and one per check that fails or is canceled, so a crashed job does not read
+# as silence. Run it after opening a PR to catch checks and reviews as they
+# land.
 #
 #   ~/.claude/skills/implement/scripts/watch-pr-feedback.sh <pr-number> [repo]
 #
@@ -28,13 +28,17 @@
 #                        automatic review usually lands inside two minutes,
 #                        which is exactly when a slow poll is most annoying
 #   WATCH_SETTLE         set to 1 to exit once the PR has gone quiet: the check
-#                        list fetched successfully with nothing pending, at
-#                        least one review in, no new item for
+#                        list fetched successfully with nothing pending,
+#                        WATCH_SETTLE_REVIEWS reviews in, no new item for
 #                        WATCH_SETTLE_POLLS polls, and WATCH_FAST_WINDOW
 #                        elapsed. Off by default, because there is no signal
 #                        that says "no more feedback is coming" and guessing
 #                        wrong ends the watch early.
 #   WATCH_SETTLE_POLLS   consecutive quiet polls before settling (default 2)
+#   WATCH_SETTLE_REVIEWS reviews required before settling (default 1). Set 0
+#                        where no automatic reviewer runs: a human review can
+#                        take hours, and the watch should end on green checks
+#                        rather than wait for it.
 #
 # Each item is reported once: ids seen are recorded in a state file, so
 # re-running does not replay a review you have already worked. That also means
@@ -50,6 +54,7 @@ FAST_INTERVAL="${WATCH_FAST_INTERVAL:-10}"
 FAST_WINDOW="${WATCH_FAST_WINDOW:-120}"
 SETTLE="${WATCH_SETTLE:-0}"
 SETTLE_POLLS="${WATCH_SETTLE_POLLS:-2}"
+SETTLE_REVIEWS="${WATCH_SETTLE_REVIEWS:-1}"
 
 STATE="${TMPDIR:-/tmp}/pr-feedback-seen-$(printf '%s' "$REPO" | tr '/' '-')-$PR.txt"
 touch "$STATE"
@@ -179,7 +184,7 @@ while true; do
     [ "$checks_ok" -eq 1 ] &&
     [ "$elapsed" -ge "$FAST_WINDOW" ] &&
     [ "${pending:-1}" -eq 0 ] &&
-    [ "${reviews_seen:-0}" -gt 0 ] &&
+    [ "${reviews_seen:-0}" -ge "$SETTLE_REVIEWS" ] &&
     [ "$quiet_polls" -ge "$SETTLE_POLLS" ]; then
     end_status_line
     printf 'WATCH SETTLED — checks: %s; %s inline, %s review(s), %s comment(s); quiet for %d polls\n' \

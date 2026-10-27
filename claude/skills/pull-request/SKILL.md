@@ -14,7 +14,7 @@ A PR body has one reader: someone without your context, who will skim anything l
 
 ## 1. Read the change and name its flavor
 
-`git diff main...HEAD` for the change, and `gh issue view <n> --comments` for the issue behind it — decisions get made in comment threads, and a body-only read misses them.
+`git diff main...HEAD` for the change. For the Asana task behind it, read the description and every comment, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
 
 Three flavors, told apart by what the reviewer cannot get from the diff alone:
 
@@ -28,12 +28,12 @@ Then, when the repo has a `render.yaml`, **decide whether the change deploys**. 
 
 ## 2. Tell the story
 
-Four moves, in order. Name each heading after its own content — `Three findings that change the shape of #147`, `What changes in a browser` — rather than reaching for `Summary` or `What changed`.
+Four moves, in order. Name each heading after its own content — `Three findings that change the export format`, `What changes in a browser` — rather than reaching for `Summary` or `What changed`.
 
-1. **Open with what this is and where it sits.** One or two sentences under no heading: the change, and the arc it belongs to. Link the issue or PR it follows from, and say what it leaves for later.
+1. **Open with what this is and where it sits.** One or two sentences under no heading: the change, and the arc it belongs to. Link the PR it follows from, if any, and say what it leaves for later. The task link goes above this paragraph, as the checks below require.
 2. **Disclose the risk.** Say what could break and for whom, and how to undo it — "A revert undoes this", or "A revert won't undo this: the migration drops `legacy_notes`." Name what a revert would not restore. Then say what did *not* change and what the suite says — "No production behavior changes here; the suite is unchanged at 327 passing." Keep the disclosure short: it is what a reviewer leans on to decide how hard to look. A skipped deploy goes here too — "Skips the Render deploy: nothing here reaches the running app" — so the reviewer can overturn it.
 3. **Carry the substance under content-named headings.** Lead each with a claim rather than a topic. Cite `path:line` for anything the reviewer would otherwise go hunting for, and link it when the file lives in this repo.
-4. **End with `Worth a reviewer's attention`.** Bold-led bullets, one per judgment call the reviewer might overturn — a skipped lint rule, a deviation from what the issue specified, a trade-off you picked a side on. This is the section that earns the review; write it even when the list has one item.
+4. **End with `Worth a reviewer's attention`.** Bold-led bullets, one per judgment call the reviewer might overturn — a skipped lint rule, a deviation from what the task specified, a trade-off you picked a side on. This is the section that earns the review; write it even when the list has one item.
 
 Alternatives you considered belong here as a headline and a link to where they were argued. The reader who wants the full case follows the link; everyone else needs the sentence.
 
@@ -69,10 +69,10 @@ Stack the pair vertically rather than side by side — two half-width images mak
 
 Mechanical checks, no judgment in any of them:
 
-- **Title** matches `^(fix|feat|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: [^A-Z].*$`, which is the composite of the `types` list and the `subjectPattern` that the repo's Lint PR workflow passes to `amannn/action-semantic-pull-request`. Read that workflow rather than trusting the regex if a title is rejected.
+- **Title follows the repo's convention.** When a workflow in `.github/workflows/` runs `amannn/action-semantic-pull-request`, the title must match its `types` list and `subjectPattern`; read them from that workflow. With no such workflow, write a plain sentence in the style of the repo's recent PR titles (`gh pr list --state merged --limit 10`).
 - **Title ends in `[skip render]` when step 1 skipped the deploy.** A suffix, because the pattern needs the type first. The decision holds only for the diff it was made on, so make it again whenever the PR gains a commit or its body is rewritten, and drop the suffix once any file reaches the running app.
 - **The commit subject too, where the repo squashes from the commit.** `gh api repos/<owner>/<repo> --jq .squash_merge_commit_title` returns `COMMIT_OR_PR_TITLE` in some repos, and there a single-commit PR lands on `main` under the *commit* subject while the lint only ever read the title. That subject needs the `[skip render]` suffix too, or Render never sees it.
-- **Issue link present** — `Closes #<n>` on the first line when merging resolves the issue, `Refs #<n>` when it does not. Repeat the keyword per issue (`Closes #10, closes #12`); one keyword does not distribute across a comma list. Closing keywords fire only when the PR targets the default branch.
+- **Task link present** — the Asana task URL alone on the first line of the body. Asana does not close a task when a PR merges, so the link only points the reviewer at the work; moving the task on the board stays with the team.
 - **Paragraphs are single unwrapped lines.**
 - **Every local image or video path in the body is absolute and gets an `--attach` for the same file.** An unmatched reference ships as a broken image, and `gh` still exits 0.
 
@@ -84,10 +84,4 @@ gh pr create --title "<title>" --body-file <path> --attach <scratch>/before.png 
 
 A failed attachment still creates the PR and prints its URL, but `gh` exits non-zero. Recover with `gh pr edit <n> --body-file <path>` and every `--attach` again, since the original body file still holds the local paths.
 
-Then confirm the link took: `gh pr view --json closingIssuesReferences` comes back non-empty whenever you used a closing keyword. GitHub can take a few seconds to fill it, so check once more before treating an empty result as a broken link.
-
-Opening the PR triggers an automatic Copilot review here, so comments arrive within a minute or two and the work is not done when the PR exists. `implement` step 6 owns that loop and its script; when this skill ran outside `implement`, say the review is coming and pick up the same loop rather than reporting the PR as finished.
-
-## Wayfinder artifact PRs
-
-A PR cannot be a child of a wayfinder map — sub-issues and dependencies are issue-scoped, and `gh pr edit` carries no `--parent`. So an artifact PR references rather than joins. The body names its ticket and its map as links wrapping their titles, per wayfinder's own "Refer by name" rule, and uses `Refs #<n>`, because the ticket resolves through wayfinder's resolution flow rather than on merge.
+Reviews come from people, so the work is not done when the PR exists. `implement` step 6 owns the review loop and its script. When this skill ran outside `implement`, say the PR is waiting on review rather than reporting it as finished.

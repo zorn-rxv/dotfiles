@@ -14,7 +14,7 @@ My Claude Code `settings.json`, `keybindings.json`, status line script, and the 
 
 ### Claude Code skills — `claude/skills/`
 
-[Agent Skills](https://agentskills.io) I maintain. Each is a directory with a `SKILL.md`, plus optional `scripts/` and `reference/` material. They come from my personal [zorn/dotfiles](https://github.com/zorn/dotfiles/tree/main/claude/skills), minus the ones built around worktrunk.
+[Agent Skills](https://agentskills.io) I maintain. Each is a directory with a `SKILL.md`, plus optional `scripts/` and `reference/` material. They come from my personal [zorn/dotfiles](https://github.com/zorn/dotfiles/tree/main/claude/skills), minus `dispatch`, which is built around worktrunk, and `wayfinder`, which is built around GitHub issues. The rest track work in Asana rather than GitHub issues; `claude/CLAUDE.md` names each repo's board.
 
 Most began as forks of [mattpocock/skills](https://github.com/mattpocock/skills) and were reshaped to fit how I work. Every forked skill records where it came from in its `metadata` frontmatter, and `claude/skills/LICENSE` carries the upstream notice.
 

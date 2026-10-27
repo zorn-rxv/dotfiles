@@ -26,7 +26,7 @@ Carry the state, not the story. A retelling of what happened is the thing the ne
 - **What is still open** — questions raised and left unsettled.
 - **Which skills the next agent should invoke**, named explicitly. A user-invoked skill will not suggest itself.
 
-Reference other artifacts by path or URL rather than restating them. Specs, plans, decision documents, issues, commits, and diffs already hold their own content, and a second copy in the handoff is one that goes stale.
+Reference other artifacts by path or URL rather than restating them. Specs, plans, decision documents, tasks, commits, and diffs already hold their own content, and a second copy in the handoff is one that goes stale.
 
 Redact secrets and personal data — API keys, tokens, passwords, and anything identifying a person.
 

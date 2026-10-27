@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Break a plan, spec, or conversation into tracer-bullet tickets that declare what blocks them, published as GitHub issues.
+description: Break a plan, spec, or conversation into tracer-bullet tickets that declare what blocks them, published as Asana tasks.
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -15,17 +15,17 @@ metadata:
 
 Break a plan, spec, or conversation into a set of **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
-Tickets are GitHub issues, published with `gh issue create`.
+Tickets are Asana tasks on the repo's board. The global Asana rule names the board and the section new tasks go in.
 
 ## Process
 
 ### 1. Gather context
 
-Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
+Work from whatever is already in the conversation context. If the user passes a reference (a spec path, or an Asana task URL) as an argument, fetch it and read its full description and every comment, as the global Asana rule says.
 
 ### 2. Explore the codebase (optional)
 
-If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's glossary vocabulary — `docs/ubiquitous_language.md` or a root `UBIQUITOUS_LANGUAGE.md` — and respect the decisions in `docs/adr/` for the area you're touching.
+If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's glossary vocabulary, if it has a glossary — `docs/ubiquitous_language.md` or a root `UBIQUITOUS_LANGUAGE.md` — and respect any decisions in `docs/adr/` for the area you're touching. When the repo has neither, use the vocabulary the code already uses.
 
 Look for opportunities to prefactor the code to make the implementation easier. "Make the change easy, then make the easy change."
 
@@ -64,29 +64,23 @@ Iterate until the user approves the breakdown.
 
 ### 5. Publish the tickets
 
-Publish the approved tickets as GitHub issues with `gh issue create`, in dependency order — blockers first, so each ticket's edges can reference issue numbers that already exist. Record each ticket's blockers as GitHub **issue dependencies**, and mirror them in the body's **Blocked by** section so they stay readable without an API call. Sub-issues are a separate feature expressing hierarchy, not blocking — do not reach for them here.
+Publish the approved tickets with `create_tasks`, in dependency order — blockers first, so each ticket's **Blocked by** section can link tasks that already exist. When the source is an Asana task, create each ticket as a subtask of it by setting `parent`. Otherwise create them in the project and section the global Asana rule names. Put each body in `html_notes`; Asana accepts only a small set of HTML elements, so each `##` heading becomes `<h2>`.
 
-Creating a dependency is a `POST`, and it takes the blocker's **global id**, not its issue number — the same path with no method is a `GET` that lists dependencies and silently records nothing:
+Then record each ticket's blockers as Asana dependencies: `update_tasks` with `add_dependencies` on each blocked ticket, listing its blockers' GIDs. The body's **Blocked by** section mirrors them, so they stay readable without opening the dependency panel.
 
-```bash
-blocker_id=$(gh api repos/{owner}/{repo}/issues/<blocker-number> --jq .id)
-gh api --method POST repos/{owner}/{repo}/issues/<blocked-number>/dependencies/blocked_by \
-  -F issue_id="$blocker_id"
-```
+Read the edges back with `get_task` on each blocked ticket and confirm its `dependencies` before moving on. A ticket whose body says "Blocked by" while Asana records no dependency looks wired and is not.
 
-Read them back with a plain `GET` on the same path and confirm the count before moving on. A ticket whose body says "Blocked by #12" while the API says nothing looks wired and is not.
+Leave custom fields such as Priority and Status unset; the team sets them during triage. Give the user each new task's URL.
 
-Label with whatever the repo already uses; do not invent a triage vocabulary it does not have.
+Work the **frontier**: any ticket whose blockers are all complete. For a purely linear chain that means top to bottom.
 
-Work the **frontier**: any ticket whose blockers are all closed. For a purely linear chain that means top to bottom.
+Do NOT complete or modify any parent task.
 
-Do NOT close or modify any parent issue.
-
-<issue-template>
+<ticket-template>
 
 ## Parent
 
-A reference to the parent issue (if the source was an existing issue, otherwise omit this section).
+A link to the parent task (if the source was an existing task, otherwise omit this section).
 
 ## What to build
 
@@ -99,8 +93,8 @@ The end-to-end behavior this ticket makes work, from the user's perspective — 
 
 ## Blocked by
 
-- A reference to each blocking issue, or "None — can start immediately".
+- A link to each blocking task, or "None — can start immediately".
 
-</issue-template>
+</ticket-template>
 
 Avoid specific file paths or code snippets — they go stale fast. The one exception is a snippet that came out of a prototype and pins a decision down more precisely than prose can; the `prototype` skill's capture rules say how to carry one across.

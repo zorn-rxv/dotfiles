@@ -1,7 +1,7 @@
 ---
 name: implement
-description: Build an issue end to end — branch, TDD, review, PR, and the Copilot feedback loop.
-argument-hint: "Issue number, or a spec/ticket path"
+description: Build an Asana task end to end — branch, TDD, review, PR, and the review feedback loop.
+argument-hint: "Asana task URL, or a spec path"
 license: MIT
 disable-model-invocation: true
 metadata:
@@ -13,11 +13,11 @@ metadata:
   note: substantially rewritten — upstream was five lines with no branch, PR, or review-response steps
 ---
 
-Take a piece of work from an issue to a pull request with its review threads answered. The steps are ordered and each has a bar to clear; do not run ahead of them.
+Take a piece of work from an Asana task to a pull request with its review threads answered. The steps are ordered and each has a bar to clear; do not run ahead of them.
 
 ## 1. Read the work
 
-The argument is an issue number, or a path to a spec or ticket. For an issue, read the body **and every comment** — `gh issue view <n> --comments`. Decisions get made in comment threads, and a body-only read misses them.
+The argument is an Asana task URL, or a path to a spec. For a task, read its description, subtasks, and dependencies with `get_task`, **and every comment** with `get_task_stories`, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
 
 If the work is not settled enough to build, stop and say so. `/grill` settles it; `/to-tickets` splits it when it is settled but too big for one branch. Neither is something to push through.
 
@@ -26,19 +26,17 @@ If the work is not settled enough to build, stop and say so. `/grill` settles it
 You are in a linked worktree when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. A worktree keeps the branch it was made with and serves one pull request, so check the branch's PR first:
 
 - **The PR has merged or closed:** stop, and ask the user to open a new worktree for this work.
-- **The branch names a different issue from the one you were given:** stop and ask the same way. Each issue gets its own worktree.
-- **No PR, or the PR is still open, for this issue:** work on the current branch, and skip the commands below.
+- **The PR links a different task from the one you were given:** stop and ask the same way. Each task gets its own worktree.
+- **No PR, or the PR is still open, for this task:** work on the current branch, and skip the commands below.
 
 In the primary checkout, branch off updated `main`:
 
 ```
 git checkout main && git pull --ff-only
-git checkout -b zorn/issue-<NNN>-<short-slug>
+git checkout -b zorn/<short-slug>
 ```
 
-The `zorn/issue-<NNN>-` prefix is required — it is what ties the branch back to its issue, both for `diff-review`'s spec axis and for anyone reading a branch list. The slug is a few kebab-case words, not the whole title.
-
-Work with no issue behind it gets `zorn/<short-slug>`, and is the exception rather than the shape to aim for.
+The slug is a few kebab-case words taken from the task's name, not the whole name. The branch carries no task number: an Asana GID is 16 digits, and it adds nothing a reader can use. The task URL goes in the PR body instead, and that link is what ties the work back to its task.
 
 ## 3. Build with TDD
 
@@ -56,26 +54,28 @@ Apply what it recommends. Findings arrive as a numbered decision list, and that 
 
 ## 5. Push and open the PR
 
-Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the issue number so it can read the work behind the change.
+Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
 
 Two things it needs from here that it cannot see on its own: open a real PR rather than a draft, and carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
 
-## 6. Work the Copilot feedback
+## 6. Work the review feedback
 
-Opening the PR triggers an automatic Copilot review. Watch for it — **as a `Monitor` command, never as a blocking foreground call**:
+Reviews here come from people, not from an automatic reviewer, so they can arrive hours after the PR opens. Watch the checks and any early comments — **as a `Monitor` command, never as a blocking foreground call**:
 
 ```
 Monitor(
   description: "PR feedback and checks on #<pr-number>",
-  command: "WATCH_SETTLE=1 ~/.claude/skills/implement/scripts/watch-pr-feedback.sh <pr-number>",
+  command: "WATCH_SETTLE=1 WATCH_SETTLE_REVIEWS=0 ~/.claude/skills/implement/scripts/watch-pr-feedback.sh <pr-number>",
 )
 ```
 
-The script polls until told to stop, so running it in the foreground buys nothing and burns the whole tool timeout while showing you nothing. `Monitor` turns each new item into a notification that arrives while you keep working; `WATCH_SETTLE=1` lets the watch end itself once checks are done and the review has landed, rather than sitting armed until timeout.
+The script polls until told to stop, so running it in the foreground buys nothing and burns the whole tool timeout while showing you nothing. `Monitor` turns each new item into a notification that arrives while you keep working. `WATCH_SETTLE=1` with `WATCH_SETTLE_REVIEWS=0` ends the watch once the checks finish and the PR goes quiet, instead of waiting for a review that may not come today.
+
+When the user says reviews have arrived, run the same command again. It reports only what it has not reported before.
 
 It emits one line per new inline review comment, review summary, or PR comment, and one per check that fails or is canceled — so a crashed job does not read as silence. It remembers what it has already reported, so nothing is announced twice, which also means a second run against the same PR is silent until you delete its state file. Progress goes to stderr, so `Read` the monitor's output file to see elapsed time and the check rollup without waiting for an event.
 
-**Evaluate every comment before acting on it. Copilot is a reviewer, not an authority** — it does not know this repo's conventions and has been confidently wrong about them. Declining a comment is a legitimate outcome; ignoring one is not.
+**Evaluate every comment before acting on it.** A reviewer can be wrong about this repo's conventions, or about what the task asked for. Declining a comment is a legitimate outcome; ignoring one is not.
 
 Reply in each thread:
 
@@ -89,7 +89,7 @@ A reply is a sentence or two saying what you did or why you did not. "Fixed in `
 
 ## 7. Done
 
-The work is done when every review thread has a reply, checks are green, and the branch is pushed.
+The work is done when checks are green, the branch is pushed, and every review thread that has arrived has a reply. When no review has arrived yet, say so: the PR is waiting on reviewers, not finished.
 
 Report which comments you applied and which you declined. A summary listing only the fixes hides the judgment calls, and those are the ones worth the user's attention.
 

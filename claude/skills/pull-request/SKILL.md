@@ -24,14 +24,12 @@ Three flavors, told apart by what the reviewer cannot get from the diff alone:
 
 Name the flavor before drafting. It decides which moves below apply.
 
-Then, when the repo has a `render.yaml`, **decide whether the change deploys**. Render deploys every merge to `main` unless the merge commit message carries `[skip render]`. Skip only when no changed file reaches the running app — CI workflows, dev tooling, agent config, docs, and tests. When any file is in doubt, let it deploy: a needless deploy costs minutes, but a wrongly skipped one leaves production silently stale.
-
 ## 2. Tell the story
 
 Four moves, in order. Name each heading after its own content — `Three findings that change the export format`, `What changes in a browser` — rather than reaching for `Summary` or `What changed`.
 
 1. **Open with what this is and where it sits.** One or two sentences under no heading: the change, and the arc it belongs to. Link the PR it follows from, if any, and say what it leaves for later. The task link goes above this paragraph, as the checks below require.
-2. **Disclose the risk.** Say what could break and for whom, and how to undo it — "A revert undoes this", or "A revert won't undo this: the migration drops `legacy_notes`." Name what a revert would not restore. Then say what did *not* change and what the suite says — "No production behavior changes here; the suite is unchanged at 327 passing." Keep the disclosure short: it is what a reviewer leans on to decide how hard to look. A skipped deploy goes here too — "Skips the Render deploy: nothing here reaches the running app" — so the reviewer can overturn it.
+2. **Disclose the risk.** Say what could break and for whom, and how to undo it — "A revert undoes this", or "A revert won't undo this: the migration drops `legacy_notes`." Name what a revert would not restore. Then say what did *not* change and what the suite says — "No production behavior changes here; the suite is unchanged at 327 passing." Keep the disclosure short: it is what a reviewer leans on to decide how hard to look.
 3. **Carry the substance under content-named headings.** Lead each with a claim rather than a topic. Cite `path:line` for anything the reviewer would otherwise go hunting for, and link it when the file lives in this repo.
 4. **End with `Worth a reviewer's attention`.** Bold-led bullets, one per judgment call the reviewer might overturn — a skipped lint rule, a deviation from what the task specified, a trade-off you picked a side on. This is the section that earns the review; write it even when the list has one item.
 
@@ -70,13 +68,11 @@ Stack the pair vertically rather than side by side — two half-width images mak
 Mechanical checks, no judgment in any of them:
 
 - **Title follows the repo's convention.** When a workflow in `.github/workflows/` runs `amannn/action-semantic-pull-request`, the title must match its `types` list and `subjectPattern`; read them from that workflow. With no such workflow, write a plain sentence in the style of the repo's recent PR titles (`gh pr list --state merged --limit 10`).
-- **Title ends in `[skip render]` when step 1 skipped the deploy.** A suffix, because the pattern needs the type first. The decision holds only for the diff it was made on, so make it again whenever the PR gains a commit or its body is rewritten, and drop the suffix once any file reaches the running app.
-- **The commit subject too, where the repo squashes from the commit.** `gh api repos/<owner>/<repo> --jq .squash_merge_commit_title` returns `COMMIT_OR_PR_TITLE` in some repos, and there a single-commit PR lands on `main` under the *commit* subject while the lint only ever read the title. That subject needs the `[skip render]` suffix too, or Render never sees it.
-- **Task link present** — the Asana task URL alone on the first line of the body. Asana does not close a task when a PR merges, so the link only points the reviewer at the work; moving the task on the board stays with the team.
+- **Task link present** — the Asana task URL alone on the first line of the body.
 - **Paragraphs are single unwrapped lines.**
 - **Every local image or video path in the body is absolute and gets an `--attach` for the same file.** An unmatched reference ships as a broken image, and `gh` still exits 0.
 
-Open it as a **draft**, always. A draft says the PR is not yet asking for review, which leaves the user room to tinker before peers are pulled in. Marking it ready with `gh pr ready` is the user's call, never this skill's.
+Open it as a **draft**, always. A draft says the PR is not yet asking for review, which leaves the user room to tinker before peers are pulled in. Marking it ready with `gh pr ready` is the user's call.
 
 Open it with a body file rather than an inline `--body`, which loses backticks in fish, silently. Add one `--attach` per referenced file; rewriting an existing PR's body takes the same flags on `gh pr edit <n>`:
 

@@ -14,7 +14,7 @@ metadata:
 
 TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
 
-When exploring the codebase, read the project's glossary, if it has one — `docs/ubiquitous_language.md` or a root `UBIQUITOUS_LANGUAGE.md` — so test names and interface vocabulary match the project's domain language, and respect any decisions in `docs/adr/` for the area you're touching. When the repo has neither, use the vocabulary the code already uses.
+When exploring the codebase, read the project's glossary, if it has one — `docs/ubiquitous_language.md` or a root `UBIQUITOUS_LANGUAGE.md` — so test names and interface vocabulary match the project's domain language, and respect any decisions in `docs/adr/` for the area you're touching.
 
 ## What a good test is
 

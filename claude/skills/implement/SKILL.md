@@ -36,7 +36,7 @@ git checkout main && git pull --ff-only
 git checkout -b zorn/<short-slug>
 ```
 
-The slug is a few kebab-case words taken from the task's name, not the whole name. The branch carries no task number: an Asana GID is 16 digits, and it adds nothing a reader can use. The task URL goes in the PR body instead, and that link is what ties the work back to its task.
+The slug is a few kebab-case words taken from the task's name, not the whole name. The task URL goes in the PR body, and that link is what ties the work back to its task.
 
 ## 3. Build with TDD
 
@@ -56,11 +56,11 @@ Apply what it recommends. Findings arrive as a numbered decision list, and that 
 
 Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
 
-Two things it needs from here that it cannot see on its own: open it as a draft, and carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
+One thing it needs from here that it cannot see on its own: carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
 
 ## 6. Work the review feedback
 
-The PR opens as a draft, so no one is asked to review it yet. Reviews come from people once the user marks it ready, and they can arrive hours later. Watch the checks and any early comments — **as a `Monitor` command, never as a blocking foreground call**:
+Reviews come from people once the user marks the draft ready, and they can arrive hours later. Watch the checks and any early comments — **as a `Monitor` command, never as a blocking foreground call**:
 
 ```
 Monitor(
@@ -75,7 +75,7 @@ When the user says reviews have arrived, run the same command again. It reports 
 
 It emits one line per new inline review comment, review summary, or PR comment, and one per check that fails or is canceled — so a crashed job does not read as silence. It remembers what it has already reported, so nothing is announced twice, which also means a second run against the same PR is silent until you delete its state file. Progress goes to stderr, so `Read` the monitor's output file to see elapsed time and the check rollup without waiting for an event.
 
-**Evaluate every comment before acting on it.** A reviewer can be wrong about this repo's conventions, or about what the task asked for. Declining a comment is a legitimate outcome; ignoring one is not.
+**Evaluate every comment before acting on it.** Declining a comment is a legitimate outcome; ignoring one is not.
 
 Reply in each thread:
 
@@ -89,7 +89,7 @@ A reply is a sentence or two saying what you did or why you did not. "Fixed in `
 
 ## 7. Done
 
-The work is done when checks are green, the branch is pushed, and every review thread that has arrived has a reply. While the PR is still a draft, say so, and say that `gh pr ready <n>` asks for peer review. Marking it ready is the user's call, like merging.
+The work is done when checks are green, the branch is pushed, and every review thread that has arrived has a reply. While the PR is still a draft, say so, and say that `gh pr ready <n>` asks for peer review.
 
 Report which comments you applied and which you declined. A summary listing only the fixes hides the judgment calls, and those are the ones worth the user's attention.
 
@@ -97,4 +97,4 @@ Say what the change needs beyond merging — a re-link, a reload, a restart, or 
 
 Then remind the user they may want to run `/code-review`. It hunts correctness bugs, which none of `diff-review`'s axes target — so it is worth a look even though step 4 already reviewed the diff. Leave it as a line in the report, not a step to run yourself; the user triggers it when they are ready.
 
-Merging is the user's call. Do not merge.
+Marking the PR ready and merging it are the user's calls. Leave both to them.

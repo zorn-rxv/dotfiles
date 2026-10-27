@@ -19,7 +19,7 @@ Specs live in Asana, as a task on the repo's board. The global Asana rule names 
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, if it has a glossary, and respect any ADRs in the area you're touching. When it has neither, use the vocabulary the code already uses.
+1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, if it has a glossary, and respect any ADRs in the area you're touching.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam the project already has — `tdd`'s reference notes give the ladder. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
@@ -27,7 +27,7 @@ Check with the user that these seams match their expectations.
 
 3. Write the spec using the template below. Show the user its title and the board and section it will go in, and publish only on their go-ahead: the board is shared with the team.
 
-4. Publish it with `create_tasks`, in the project and section the global Asana rule names. Put the spec in `html_notes`. Asana accepts only a small set of HTML elements, so each `##` heading becomes `<h2>`, and lists become `<ol>` or `<ul>`. Leave custom fields such as Priority and Status unset; the team sets them during triage. Give the user the new task's URL.
+4. Publish it with `create_tasks`, in the project and section the global Asana rule names. Give the user the new task's URL.
 
 <spec-template>
 

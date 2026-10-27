@@ -19,7 +19,7 @@ Resolving collapses the thread, so I lose the chance to check the fix against th
 
 ## Asana
 
-Work is tracked as Asana tasks, not GitHub issues. Reach Asana through the Asana connector's tools. A task's identity is its URL; its GID is the last number in that URL. Read a task with `get_task`, and read the whole comment thread with `get_task_stories` and `resource_subtype: comment_added`, because `get_task` returns only the latest few comments.
+Work is tracked as Asana tasks, not GitHub issues. A task's identity is its URL; its GID is the last number in that URL. Read a task with `get_task`, and read the whole comment thread with `get_task_stories` and `resource_subtype: comment_added`, because `get_task` returns only the latest few comments.
 
 Each repo's board:
 
@@ -27,7 +27,9 @@ Each repo's board:
 | --- | --- | --- |
 | `verify-doctor` | [Verify.Doctor Development Board](https://app.asana.com/1/1206675003684155/project/1214048842830262), project GID `1214048842830262` | the Backlog section, GID `1214045680265170` |
 
-When a repo is not listed, ask me which board to use before you create anything. Never change a task's status, section, or assignee unless I ask. The board is shared, and those fields are how the team reads where work stands.
+When a repo is not listed, ask me which board to use before you create anything.
+
+Write a new task's body in `html_notes`, so its headings and lists render. Leave its custom fields, such as Priority and Status, for the team to set during triage. Leave an existing task's status, section, and assignee as they are unless I ask. The board is shared, and those fields are how the team reads where work stands.
 
 ## Write to be scanned
 

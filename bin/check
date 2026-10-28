@@ -22,14 +22,17 @@
 #                what actually guards the tool install scripts in ci.yml.
 #   shell      — shellcheck over every bash script in bin/, claude/, and
 #                githooks. actionlint covers the shell inside workflow `run:`
-#                blocks and nothing else; a hook script is otherwise wholly
-#                unchecked. (Written this way round because a comment
-#                beginning with the tool's own name parses as a shellcheck
-#                directive.) It also runs bin/test-check. That script checks
-#                that each section runs alone and asks only for its own tool.
-#                It then runs bin/test-hexdocs-hook, because a wrong URL
-#                rewrite sends every Elixir doc fetch to the wrong page
-#                without an error.
+#                blocks and nothing else; a script shipped inside a skill or
+#                as a hook is otherwise wholly unchecked. (Written this way
+#                round because a comment beginning with the tool's own name
+#                parses as a shellcheck directive.) It also runs
+#                bin/test-check. That script checks that each section runs
+#                alone and asks only for its own tool. It then runs
+#                bin/test-hexdocs-hook, because a wrong URL rewrite sends
+#                every Elixir doc fetch to the wrong page without an error.
+#   skills     — bin/check-skills over claude/skills. A skill whose
+#                frontmatter is malformed never activates and never says so,
+#                which makes it the failure most worth automating.
 #   link       — bin/test-link, which runs bin/link against a throwaway HOME.
 #                bin/link must never overwrite a real file it finds in place,
 #                and nothing else would notice if it did. Each hook
@@ -50,7 +53,7 @@ usage() {
   printf 'With no section named, every section runs.\n' >&2
 }
 
-all_sections=(secrets workflows shell link fish)
+all_sections=(secrets workflows shell skills link fish)
 
 contains() {
   local needle="$1" item
@@ -102,6 +105,10 @@ selected workflows && require actionlint 'brew install actionlint' \
   'https://github.com/rhysd/actionlint/blob/main/docs/install.md'
 selected shell && require shellcheck 'brew install shellcheck' \
   'https://github.com/koalaman/shellcheck#installing'
+# bin/check-skills is Python, which is why python3 is a tool this needs. It has
+# no third-party dependencies, so a stock interpreter is the whole requirement.
+selected skills && require python3 'brew install python' \
+  'https://www.python.org/downloads/'
 # bin/test-link reads the hooks out of claude/settings.json with jq. The
 # hexdocs hook parses its input with jq, so its test does too.
 { selected shell || selected link; } && require jq 'brew install jq' \
@@ -157,7 +164,10 @@ check_workflows() {
 check_shell() {
   printf '==> shellcheck: shell scripts\n'
   # Found by shebang rather than named, so a script is covered the moment it is
-  # added. Hook scripts in claude/hooks and githooks have no other check at all.
+  # added — and bin/check-skills, which is Python, is not. Skills ship scripts
+  # too, and a skill's script is the half of a skill nothing else validates:
+  # check-skills compiles its Python and says nothing about its shell. Hook
+  # scripts in claude/hooks and githooks have no other check at all.
   local shell_scripts=() candidate
   while IFS= read -r candidate; do
     if head -n 1 "$candidate" | grep -q '^#!.*bash'; then
@@ -177,6 +187,16 @@ check_shell() {
 
   printf '\n==> test-hexdocs-hook: WebFetch URL rewrite\n'
   ./bin/test-hexdocs-hook || failed=1
+  return "$failed"
+}
+
+check_skills() {
+  # The self-test runs first: a validator that cannot fail would report every
+  # skill as fine, which is the same silent pass the validator exists to prevent.
+  printf '==> check-skills: skill frontmatter, links and scripts\n'
+  local failed=0
+  ./bin/check-skills --self-test || failed=1
+  ./bin/check-skills || failed=1
   return "$failed"
 }
 
@@ -213,9 +233,14 @@ advise() {
       printf 'A test-hexdocs-hook failure means Elixir doc fetches would land on\n' >&2
       printf 'the wrong URL.\n' >&2
       ;;
+    skills)
+      printf 'A check-skills finding means a skill would not load, or would load\n' >&2
+      printf 'with a mangled description. Nothing at runtime reports either one.\n' >&2
+      ;;
     link)
       printf 'A test-link failure means bin/link could overwrite a real file, or\n' >&2
-      printf 'settings.json registers a hook with no script behind it.\n' >&2
+      printf 'settings.json registers a hook with no script behind it, or a\n' >&2
+      printf 'renamed skill would leave a dangling link without a word.\n' >&2
       printf 'Fix bin/link before running it on a real HOME.\n' >&2
       ;;
     fish)

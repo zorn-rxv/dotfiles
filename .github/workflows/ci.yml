@@ -74,8 +74,8 @@ jobs:
       - name: Run checks
         run: ./bin/check workflows
 
-  # shellcheck and jq come with the runner image, so these two jobs install
-  # nothing.
+  # shellcheck, python3 and jq come with the runner image, so these three
+  # jobs install nothing.
   shell:
     name: shell
     runs-on: ubuntu-latest
@@ -84,6 +84,15 @@ jobs:
       - uses: actions/checkout@v7
       - name: Run checks
         run: ./bin/check shell
+
+  skills:
+    name: skills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run checks
+        run: ./bin/check skills
 
   link:
     name: link

@@ -17,6 +17,20 @@ When you address a review comment on a pull request, reply in its thread to say 
 
 Resolving collapses the thread, so I lose the chance to check the fix against the comment before it disappears from view. Whether a comment is settled is my call, not yours.
 
+## Asana
+
+Work is tracked as Asana tasks, not GitHub issues. A task's identity is its URL; its GID is the last number in that URL. Read a task with `get_task`, and read the whole comment thread with `get_task_stories` and `resource_subtype: comment_added`, because `get_task` returns only the latest few comments.
+
+Each repo's board:
+
+| Repo | Board | New tasks go in |
+| --- | --- | --- |
+| `verify-doctor` | [Verify.Doctor Development Board](https://app.asana.com/1/1206675003684155/project/1214048842830262), project GID `1214048842830262` | the Backlog section, GID `1214045680265170` |
+
+When a repo is not listed, ask me which board to use before you create anything.
+
+Write a new task's body in `html_notes`, so its headings and lists render. Leave its custom fields, such as Priority and Status, for the team to set during triage. Leave an existing task's status, section, and assignee as they are unless I ask. The board is shared, and those fields are how the team reads where work stands.
+
 ## Write to be scanned
 
 Length changes how a reader engages. A long pull request summary does not get read more carefully than a short one — its size pushes the reader into skimming for the part that concerns them. Keep prose tight so that what you wrote is what gets read.

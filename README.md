@@ -20,11 +20,19 @@ Most began as forks of [mattpocock/skills](https://github.com/mattpocock/skills)
 
 A skill with malformed frontmatter fails silently. It never activates, and nothing reports an error. So `bin/check-skills` validates every skill against the [Agent Skills spec](https://agentskills.io/specification) on each pull request. It also checks that relative links resolve and that bundled Python compiles.
 
+### Herdr config — `herdr/`
+
+My [Herdr](https://herdr.dev) `config.toml`: the theme, mouse capture, and onboarding turned off. Only that file is tracked. Herdr keeps its sockets, logs, and session snapshots in the same directory, and those are machine state.
+
 ### fish config — `fish/`
 
 My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homebrew, Docker Desktop's CLI, and libpq's `psql`. It keeps commands that carry a secret, such as a token assignment or an auth header, out of fish history. It also sets `DO_NOT_TRACK` to opt out of CLI telemetry. Only that one file is tracked. Fish writes `fish_variables` into the same directory, and installers add their own generated functions and completions there. Those files are machine state, so they stay out of the repo.
 
 Secrets and machine-only settings go in `~/.config/fish/local.fish`, which `config.fish` loads if it exists. It lives outside the repo, so it cannot be committed.
+
+### Global git ignore — `git/ignore`
+
+The patterns every repo ignores: editor backups, `.DS_Store`, Claude Code's local settings and agent worktrees, and Python bytecode. Git reads `~/.config/git/ignore` only while `core.excludesFile` is unset, so `bin/link` warns when that setting points elsewhere.
 
 ### Zed settings — `zed/`
 
@@ -32,7 +40,7 @@ My [Zed](https://zed.dev) `settings.json`. Its `auto_install_extensions` list ma
 
 ### zsh environment — `zsh/zshenv`
 
-Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
+Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH and sets `DO_NOT_TRACK`, as `config.fish` does. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
 
 ## Setup
 
@@ -40,7 +48,7 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 ~/Repos/dotfiles/bin/link
 ```
 
-`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`, and each skill into `~/.claude/skills/`. It also links `fish/config.fish` into `~/.config/fish/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Re-run it after adding a skill. It reports, but does not delete, a link left behind by a renamed or removed skill. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`, and each skill into `~/.claude/skills/`. It also links `herdr/config.toml` into `~/.config/herdr/`, `fish/config.fish` into `~/.config/fish/`, `git/ignore` into `~/.config/git/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Re-run it after adding a skill. It reports, but does not delete, a link left behind by a renamed or removed skill. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
 
 ## Secrets
 

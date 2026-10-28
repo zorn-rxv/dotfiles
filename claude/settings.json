@@ -29,6 +29,9 @@
     ]
   },
   "permissions": {
+    "additionalDirectories": [
+      "/Users/mikezornek/Issues"
+    ],
     "allow": [
       "WebFetch(domain:hexdocs.pm)",
       "WebFetch(domain:*.hexdocs.pm)",

@@ -31,6 +31,10 @@ When a repo is not listed, ask me which board to use before you create anything.
 
 Write a new task's body in `html_notes`, so its headings and lists render. Leave its custom fields, such as Priority and Status, for the team to set during triage. Leave an existing task's status, section, and assignee as they are unless I ask. The board is shared, and those fields are how the team reads where work stands.
 
+## Local issues
+
+Work I have not put in Asana yet lives as Markdown files in `~/Issues/<repo>/`, where `<repo>` is the repo's directory name. Each file is one issue. They sit outside the repo so that no commit, `git clean`, or new worktree can touch them, and so searching the repo will not find them. When I name an issue, or ask what is open, look in that folder. An issue file is a valid argument wherever a skill takes a spec path.
+
 ## Write to be scanned
 
 Length changes how a reader engages. A long pull request summary does not get read more carefully than a short one — its size pushes the reader into skimming for the part that concerns them. Keep prose tight so that what you wrote is what gets read.

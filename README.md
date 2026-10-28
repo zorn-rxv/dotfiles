@@ -24,6 +24,10 @@ A skill with malformed frontmatter fails silently. It never activates, and nothi
 
 My [Herdr](https://herdr.dev) `config.toml`: the theme, mouse capture, and onboarding turned off. Only that file is tracked. Herdr keeps its sockets, logs, and session snapshots in the same directory, and those are machine state.
 
+### espanso config — `espanso/`
+
+My [espanso](https://espanso.org) text expander config: `config/default.yml` and the snippets in `match/base.yml`. Only those two files are tracked. `espanso install` writes packages into `match/packages/`, and those come back from reinstalling. Snippets too private for a public repo, like my phone number, live in `~/Library/Application Support/espanso/match/private.yml` instead. That file sits outside the repo, so it cannot be committed, and espanso loads it alongside `base.yml` with no import. On a fresh machine it has to be recreated by hand.
+
 ### fish config — `fish/`
 
 My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homebrew, Docker Desktop's CLI, and libpq's `psql`. It keeps commands that carry a secret, such as a token assignment or an auth header, out of fish history. It also sets `DO_NOT_TRACK` to opt out of CLI telemetry. Only that one file is tracked. Fish writes `fish_variables` into the same directory, and installers add their own generated functions and completions there. Those files are machine state, so they stay out of the repo.
@@ -48,7 +52,7 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 ~/Repos/dotfiles/bin/link
 ```
 
-`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`, and each skill into `~/.claude/skills/`. It also links `herdr/config.toml` into `~/.config/herdr/`, `fish/config.fish` into `~/.config/fish/`, `git/ignore` into `~/.config/git/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Re-run it after adding a skill. It reports, but does not delete, a link left behind by a renamed or removed skill. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
+`bin/link` symlinks `claude/CLAUDE.md`, `settings.json`, `keybindings.json`, `statusline-command.sh`, and the `hooks/` directory into `~/.claude/`, and each skill into `~/.claude/skills/`. It also links `herdr/config.toml` into `~/.config/herdr/`, the espanso files into `~/Library/Application Support/espanso/`, `fish/config.fish` into `~/.config/fish/`, `git/ignore` into `~/.config/git/`, `zed/settings.json` into `~/.config/zed/`, and `zsh/zshenv` to `~/.zshenv`. It's idempotent, and it refuses to overwrite anything that already exists as a real file or directory. Re-run it after adding a skill. It reports, but does not delete, a link left behind by a renamed or removed skill. Editing a linked file takes effect immediately, and a change made in Claude Code's UI writes through the link and shows up here as a diff.
 
 ## Secrets
 

@@ -48,6 +48,10 @@ points_at() {
   [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]
 }
 
+not_grep() {
+  ! grep -q "$1" "$2"
+}
+
 assert() {
   local label="$1"
   shift
@@ -66,6 +70,7 @@ for entry in "${links[@]}"; do
   assert "a fresh HOME links $dest" points_at "$home/$dest" "$repo_root/$src"
 done
 assert 'a fresh HOME skips nothing' grep -q ' 0 skipped, 0 orphaned$' "$out"
+assert 'a fresh HOME warns about nothing' not_grep '^  WARN' "$out"
 # Without it the pre-commit secret scan never runs, and nothing says so.
 assert 'core.hooksPath points at githooks' \
   test "$(git -C "$repo_root" config core.hooksPath)" = githooks
@@ -96,6 +101,19 @@ run_link
 assert 'a real file is skipped' grep -q '^  SKIP     zed/settings.json' "$out"
 assert 'a real file is left alone' grep -qx 'untracked' "$home/.config/zed/settings.json"
 assert 'a skip is counted' grep -q ' 1 skipped, 0 orphaned$' "$out"
+
+# A core.excludesFile naming another file makes git skip the linked ignore
+# file, and nothing else would say so. One naming the linked path is fine.
+# A literal ~ on purpose: git stores it unexpanded, as a user would write it.
+# shellcheck disable=SC2088
+HOME="$home" git config --global core.excludesFile '~/.gitignore_global'
+run_link
+assert 'another excludesFile is warned about' grep -q '^  WARN     git/ignore is unused' "$out"
+# shellcheck disable=SC2088
+HOME="$home" git config --global core.excludesFile '~/.config/git/ignore'
+run_link
+assert 'an excludesFile naming the link is not' not_grep '^  WARN' "$out"
+HOME="$home" git config --global --unset core.excludesFile
 
 # A skill renamed or removed here leaves a dangling link in ~/.claude/skills.
 ln -s "$repo_root/claude/skills/removed-skill" "$home/.claude/skills/removed-skill"

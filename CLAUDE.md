@@ -10,7 +10,7 @@ This is a public repo on GitHub. Everything committed is world-readable, and it 
 
 `claude/CLAUDE.md` is not this repo's instructions. It is the global instruction file that `bin/link` links to `~/.claude/CLAUDE.md`, so every Claude Code session on the machine loads it. Edit it only when the change is meant for all projects.
 
-Every tracked config file is live. `claude/settings.json`, the hooks, the skills, `fish/config.fish`, `zed/settings.json`, and `zsh/zshenv` are symlink targets, so an edit here changes the running setup at once. A change made in Claude Code's or Zed's UI writes through the link and appears here as a diff.
+Every tracked config file is live. `claude/settings.json`, the hooks, the skills, `fish/config.fish`, `git/ignore`, `herdr/config.toml`, `zed/settings.json`, and `zsh/zshenv` are symlink targets, so an edit here changes the running setup at once. A change made in Claude Code's or Zed's UI writes through the link and appears here as a diff.
 
 ## Commands
 

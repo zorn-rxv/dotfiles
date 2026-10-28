@@ -73,11 +73,12 @@ link_path "$repo_root/zed/settings.json" \
 link_path "$repo_root/zsh/zshenv" "$HOME/.zshenv" 'zsh/zshenv'
 
 # Git reads this path as the global ignore file only while core.excludesFile is
-# unset. A set value makes git skip this file without a word, so report it
-# rather than rewrite the user's global git config.
+# unset or names this path. Any other value makes git skip this file without
+# a word, so report it rather than rewrite the user's global git config.
 link_path "$repo_root/git/ignore" "$HOME/.config/git/ignore" 'git/ignore'
-excludes_file="$(git config --global --get core.excludesFile || true)"
-if [ -n "$excludes_file" ]; then
+# --type=path expands a leading ~, so either spelling of this path matches.
+excludes_file="$(git config --global --type=path --get core.excludesFile || true)"
+if [ -n "$excludes_file" ] && [ "$excludes_file" != "$HOME/.config/git/ignore" ]; then
   printf '  WARN     git/ignore is unused while core.excludesFile is set to %s\n' \
     "$excludes_file"
   printf '           Run: git config --global --unset core.excludesFile\n'

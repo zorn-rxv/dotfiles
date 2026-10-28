@@ -26,9 +26,11 @@ links=(
   ".claude/keybindings.json=claude/keybindings.json"
   ".claude/statusline-command.sh=claude/statusline-command.sh"
   ".claude/hooks=claude/hooks"
+  ".config/herdr/config.toml=herdr/config.toml"
   ".config/fish/config.fish=fish/config.fish"
   ".config/zed/settings.json=zed/settings.json"
   ".zshenv=zsh/zshenv"
+  ".config/git/ignore=git/ignore"
 )
 
 # Each skill gets its own link, so check them all rather than one sample.

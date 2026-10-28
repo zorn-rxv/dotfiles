@@ -1,0 +1,11 @@
+*~
+.DS_Store
+
+# Claude Code local settings
+**/.claude/settings.local.json
+
+# Worktrees Claude Code creates for agents run in isolation
+**/.claude/worktrees/
+
+# Bytecode Python writes beside a script when something imports it
+__pycache__/

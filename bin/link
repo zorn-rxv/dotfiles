@@ -53,6 +53,11 @@ link_path "$repo_root/claude/statusline-command.sh" \
 # ~/.claude/hooks, so the whole directory can be a link.
 link_path "$repo_root/claude/hooks" "$HOME/.claude/hooks" 'hooks'
 
+# Herdr's config file, not ~/.config/herdr itself: Herdr keeps its sockets,
+# logs, and session snapshots there.
+link_path "$repo_root/herdr/config.toml" \
+  "$HOME/.config/herdr/config.toml" 'herdr/config.toml'
+
 # fish's config file, not ~/.config/fish itself: fish writes fish_variables
 # there, and installers drop generated functions and completions beside it.
 link_path "$repo_root/fish/config.fish" \
@@ -66,6 +71,17 @@ link_path "$repo_root/zed/settings.json" \
 
 # zsh still runs the shell commands of Claude Code and of GUI apps like Zed.
 link_path "$repo_root/zsh/zshenv" "$HOME/.zshenv" 'zsh/zshenv'
+
+# Git reads this path as the global ignore file only while core.excludesFile is
+# unset. A set value makes git skip this file without a word, so report it
+# rather than rewrite the user's global git config.
+link_path "$repo_root/git/ignore" "$HOME/.config/git/ignore" 'git/ignore'
+excludes_file="$(git config --global --get core.excludesFile || true)"
+if [ -n "$excludes_file" ]; then
+  printf '  WARN     git/ignore is unused while core.excludesFile is set to %s\n' \
+    "$excludes_file"
+  printf '           Run: git config --global --unset core.excludesFile\n'
+fi
 
 # Not a symlink, but it belongs with them: without it the pre-commit secret
 # scan in githooks/ never runs. Relative, so each worktree uses its own copy.

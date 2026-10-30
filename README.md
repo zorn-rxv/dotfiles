@@ -12,6 +12,10 @@ The instructions every Claude Code session loads no matter which project it's in
 
 My Claude Code `settings.json`, `keybindings.json`, status line script, and the `hooks/` the settings register. The status line and hooks need `jq`.
 
+Auto mode's `autoMode` block does not live here. It describes the trust boundaries of my work projects: private repo names, internal domains, and which files hold sensitive data. That is a map of private code, and this repo is public. Claude Code reads `autoMode` only from user settings, managed settings, or a `--settings` file. It [ignores a project's `.claude/settings.local.json`](https://code.claude.com/docs/en/auto-mode-config.md), so a cloned repo cannot inject its own rules. User settings are `claude/settings.json` through the symlink, and a `--settings` flag is easy to forget. So the block lives in managed settings at `/Library/Application Support/ClaudeCode/managed-settings.json`, a root-owned file that holds only `autoMode`. Editing it needs `sudo`. On a fresh machine, it has to be recreated by hand. Run `claude auto-mode config` to confirm Claude Code reads it.
+
+When Claude Code's auto mode setup runs, it writes a new `autoMode` block into `~/.claude/settings.json`, which shows up here as a diff. Move that block into the managed file rather than committing it. Claude Code also reorders keys whenever it saves the file, so a large diff here may hold only one real change. Comparing both versions with `jq -S` shows what changed.
+
 ### Claude Code skills — `claude/skills/`
 
 [Agent Skills](https://agentskills.io) I maintain. Each is a directory with a `SKILL.md`, plus optional `scripts/` and `reference/` material. They come from my personal [zorn/dotfiles](https://github.com/zorn/dotfiles/tree/main/claude/skills), minus `dispatch`, which is built around worktrunk, and `wayfinder`, which is built around GitHub issues. The rest track work in Asana rather than GitHub issues; `claude/CLAUDE.md` names each repo's board.
@@ -33,6 +37,8 @@ My [espanso](https://espanso.org) text expander config: `config/default.yml` and
 My [fish](https://fishshell.com) `config.fish`. It sets up PATH, including Homebrew, Docker Desktop's CLI, and libpq's `psql`. It keeps commands that carry a secret, such as a token assignment or an auth header, out of fish history. It also sets `DO_NOT_TRACK` to opt out of CLI telemetry. Only that one file is tracked. Fish writes `fish_variables` into the same directory, and installers add their own generated functions and completions there. Those files are machine state, so they stay out of the repo.
 
 Secrets and machine-only settings go in `~/.config/fish/local.fish`, which `config.fish` loads if it exists. It lives outside the repo, so it cannot be committed.
+
+Docker Desktop sometimes adds its own `export PATH=...` block to the top of `config.fish`, because it does not recognize the `fish_add_path` line that already adds `~/.docker/bin`. That block only duplicates the entry, so discard it with `git checkout fish/config.fish`.
 
 ### Global git ignore — `git/ignore`
 
@@ -56,7 +62,7 @@ Fish is my interactive shell, but Claude Code runs its shell commands in zsh, an
 
 ## Secrets
 
-Nothing in this repo is a credential, and nothing ever should be. Secrets and machine-only settings go in untracked sibling files, such as fish's `local.fish`.
+Nothing in this repo is a credential, and nothing ever should be. Secrets and machine-only settings go in untracked sibling files, such as fish's `local.fish`, or in files outside the repo, such as Claude Code's managed settings.
 
 [Betterleaks](https://github.com/betterleaks/betterleaks) runs on every pull request as a required check, so a leak blocks the merge. It scans the working tree *and* the commit history, because this repo is public and git history is permanent — a credential that reaches GitHub is already scraped, and deleting it in the next commit fixes nothing.
 

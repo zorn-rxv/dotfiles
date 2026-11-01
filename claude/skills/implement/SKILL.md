@@ -50,13 +50,15 @@ Run `diff-review` against `main`. Reviewing here rather than after pushing is th
 
 Apply what it recommends. Findings arrive as a numbered decision list, and that skill's contract governs how the user's reply is read.
 
-`/code-review ultra` is Anthropic's deeper multi-agent cloud pass, and is **user-triggered only** — this skill cannot launch it. When a change is large or risky enough to want it, say so and let the user type it, rather than proceeding as though the pass happened. This repo's own reviewer is named `diff-review` precisely so that the two invocations cannot be confused.
+Then stop and ask the user to run `/code-review`. It hunts correctness bugs, which `diff-review` targets only for races between users, and no bot reviews the PR after it opens — so this is the last bug-hunting pass before a person sees the change. Do not run it yourself: the user picks its effort level, and the higher levels are costly. When the change is large or risky, say so, so the user can pick a higher level. Apply its findings the same way as `diff-review`'s.
+
+Move to step 5 only after the user reports that `/code-review` has run and its findings are settled, or says to skip it. Do not proceed as though the pass happened when it did not.
 
 ## 5. Push and open the PR
 
 Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
 
-One thing it needs from here that it cannot see on its own: carry over anything `diff-review` surfaced in step 4 that you declined, since a declined finding is a judgment call the reviewer might overturn.
+One thing it needs from here that it cannot see on its own: the findings from step 4 that you declined and a reviewer might reasonably overturn — a trade-off you picked a side on, a risk you are accepting, a deviation from the task. Leave out false positives, nits, and out-of-scope suggestions; the PR body is for a reviewer who has not seen the work, not a log of the review.
 
 ## 6. Work the review feedback
 
@@ -94,7 +96,5 @@ The work is done when checks are green, the branch is pushed, and every review t
 Report which comments you applied and which you declined. A summary listing only the fixes hides the judgment calls, and those are the ones worth the user's attention.
 
 Say what the change needs beyond merging — a re-link, a reload, a restart, or a doc that now describes it wrongly — or that it needs nothing. The user should not have to ask.
-
-Then remind the user they may want to run `/code-review`. It hunts correctness bugs, which `diff-review` targets only for races between users — so it is worth a look even though step 4 already reviewed the diff. Leave it as a line in the report, not a step to run yourself; the user triggers it when they are ready.
 
 Marking the PR ready and merging it are the user's calls. Leave both to them.

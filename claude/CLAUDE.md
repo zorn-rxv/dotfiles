@@ -37,6 +37,10 @@ Write a new task's body in `html_notes`, so its headings and lists render. Leave
 
 Work I have not put in Asana yet lives as Markdown files in `~/Issues/<repo>/`, where `<repo>` is the repo's directory name. Each file is one issue. They sit outside the repo so that no commit, `git clean`, or new worktree can touch them, and so searching the repo will not find them. When I name an issue, or ask what is open, look in that folder. An issue file is a valid argument wherever a skill takes a spec path.
 
+`~/Issues/README.md` defines the issue format: the frontmatter fields, the tag list, and how to close an issue. Follow it whenever you write an issue. Give every new issue frontmatter with `status: open`, today's date as `captured` and `updated`, and tags from the existing list. Set `updated` to today whenever you change an issue meaningfully. When I ask to close or cancel an issue, set `status` and `closed`, and add a short `## Resolution` section. Do not delete the file. Only "open" means the work is still to do. A closed or canceled issue is history, not open work.
+
+After changing issues, run `elixir build.exs` in `~/Issues` to refresh `index.html`. `~/Issues` is a local git repository. Commit there after a meaningful batch of issue changes, with a Conventional Commits message, without asking first.
+
 ## Write to be scanned
 
 Length changes how a reader engages. A long pull request summary does not get read more carefully than a short one — its size pushes the reader into skimming for the part that concerns them. Keep prose tight so that what you wrote is what gets read.

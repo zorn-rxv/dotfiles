@@ -11,6 +11,8 @@ This means:
 
 Commits and PRs are attributed solely to the human author running the session.
 
+Write pull request titles as Conventional Commits, `type: subject`, even in a repo that does not enforce them. Use one of `fix`, `feat`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, or `revert`, and add a scope in parentheses only when it helps. Start the subject with a lowercase letter, as in `docs: add a first pass at a ubiquitous language glossary`. When a repo's own lint enforces a different title format, the repo's format wins.
+
 ## Review comment threads
 
 When you address a review comment on a pull request, reply in its thread to say what you did, but leave the thread open. Resolve a thread only when I explicitly tell you to.

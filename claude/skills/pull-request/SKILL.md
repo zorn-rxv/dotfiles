@@ -67,7 +67,7 @@ Stack the pair vertically rather than side by side — two half-width images mak
 
 Mechanical checks, no judgment in any of them:
 
-- **Title follows the repo's convention.** When a workflow in `.github/workflows/` runs `amannn/action-semantic-pull-request`, the title must match its `types` list and `subjectPattern`; read them from that workflow. With no such workflow, write a plain sentence in the style of the repo's recent PR titles (`gh pr list --state merged --limit 10`).
+- **Title is a Conventional Commit.** When a workflow in `.github/workflows/` runs `amannn/action-semantic-pull-request`, the title must match its `types` list and `subjectPattern`; read them from that workflow, because the repo's lint wins. With no such workflow, still write `type: subject`, with a type from `fix`, `feat`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, or `revert`, a scope in parentheses only when it helps, and a subject that starts lowercase, such as `docs: add a first pass at a ubiquitous language glossary`. Recent PR titles do not decide the format, so a repo with plain-sentence history still gets a Conventional Commits title.
 - **Task link present** — the Asana task URL alone on the first line of the body.
 - **Paragraphs are single unwrapped lines.**
 - **Every local image or video path in the body is absolute and gets an `--attach` for the same file.** An unmatched reference ships as a broken image, and `gh` still exits 0.

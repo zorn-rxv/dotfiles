@@ -56,7 +56,7 @@ Move to step 5 only after the user reports that `/code-review` has run and its f
 
 ## 5. Push and open the PR
 
-Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
+Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change. For a QuestLog issue, pass the issue's path instead, so it can record the PR in that issue's `prs` list.
 
 One thing it needs from here that it cannot see on its own: the findings from step 4 that you declined and a reviewer might reasonably overturn — a trade-off you picked a side on, a risk you are accepting, a deviation from the task. Leave out false positives, nits, and out-of-scope suggestions; the PR body is for a reviewer who has not seen the work, not a log of the review.
 

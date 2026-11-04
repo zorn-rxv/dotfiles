@@ -36,7 +36,7 @@ git checkout main && git pull --ff-only
 git checkout -b zorn/<short-slug>
 ```
 
-The slug is a few kebab-case words taken from the task's name, not the whole name. The task URL goes in the PR body, and that link is what ties the work back to its task.
+The slug is a few kebab-case words taken from the task's name, not the whole name. The task URL goes in the PR body, and that link is what ties the work back to its task. For a QuestLog issue, the PR number in the issue's `prs` list is the tie instead.
 
 ## 3. Build with TDD
 

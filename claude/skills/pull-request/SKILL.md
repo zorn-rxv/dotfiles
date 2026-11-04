@@ -14,7 +14,7 @@ A PR body has one reader: someone without your context, who will skim anything l
 
 ## 1. Read the change and name its flavor
 
-`git diff main...HEAD` for the change. For the Asana task behind it, read the description and every comment, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
+`git diff main...HEAD` for the change. For the Asana task behind it, read the description and every comment, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them. For a QuestLog issue, read the issue file you were given.
 
 Three flavors, told apart by what the reviewer cannot get from the diff alone:
 
@@ -68,7 +68,7 @@ Stack the pair vertically rather than side by side — two half-width images mak
 Mechanical checks, no judgment in any of them:
 
 - **Title is a Conventional Commit.** When a workflow in `.github/workflows/` runs `amannn/action-semantic-pull-request`, the title must match its `types` list and `subjectPattern`; read them from that workflow, because the repo's lint wins. With no such workflow, still write `type: subject`, with a type from `fix`, `feat`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, or `revert`, a scope in parentheses only when it helps, and a subject that starts lowercase, such as `docs: add a first pass at a ubiquitous language glossary`. Recent PR titles do not decide the format, so a repo with plain-sentence history still gets a Conventional Commits title.
-- **Task link present** — the Asana task URL alone on the first line of the body. Work from a QuestLog issue has no link to give, because the QuestLog repo is private; it gets recorded after opening instead.
+- **Task link present** — the Asana task URL alone on the first line of the body. Work from a QuestLog issue has no link to give, because the QuestLog repo is private. Instead, the PR number goes in the issue's `prs` list after opening, as described below.
 - **Paragraphs are single unwrapped lines.**
 - **Every local image or video path in the body is absolute and gets an `--attach` for the same file.** An unmatched reference ships as a broken image, and `gh` still exits 0.
 
@@ -82,6 +82,6 @@ gh pr create --draft --title "<title>" --body-file <path> --attach <scratch>/bef
 
 A failed attachment still creates the PR and prints its URL, but `gh` exits non-zero. Recover with `gh pr edit <n> --body-file <path>` and every `--attach` again, since the original body file still holds the local paths.
 
-When the work comes from a QuestLog issue, append the new PR number to that issue's `prs` list now, while the number is at hand. Then run `elixir build.exs` in `~/QuestLog`, and commit and push QuestLog, as the global QuestLog rule says.
+When the work comes from a QuestLog issue, append the new PR number to that issue's `prs` list now, while the number is at hand, and set its `updated` date. Then run `elixir build.exs` in `~/QuestLog`, and commit and push QuestLog, as the global QuestLog rule says.
 
 Report the PR as a draft, and say that `gh pr ready <n>` asks for peer review once the user is happy with it. Reviews come from people after that, so the work is not finished when the draft exists. `implement` step 6 owns the review loop and its script.

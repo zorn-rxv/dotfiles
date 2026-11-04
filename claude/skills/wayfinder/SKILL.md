@@ -79,7 +79,7 @@ Each decision issue is a child of the map; its issue ID is its identity. Its bod
 
 The **Type** line names one of the [issue types](#issue-types). Tags keep their README meaning — the area of the work — so the type does not go in `tags`.
 
-Blocking edges go in the `blocked_by` frontmatter field, as the README's Blocking section defines it. Hierarchy says which map an issue belongs to; blocking says what has to finish first, and only the second decides the frontier. An issue is **unblocked** when every issue in its `blocked_by` list is closed; the **frontier** is the map's open, unblocked children — the edge of the known, and what the viewer's Ready filter shows within the map's questline. Take the frontier in ID order, since the frontmatter cannot express any other order.
+Blocking edges go in the `blocked_by` frontmatter field, as the README's Blocking section defines it. Hierarchy says which map an issue belongs to; blocking says what has to finish first, and only the second decides the frontier. An issue is **unblocked** when every issue in its `blocked_by` list is closed; the **frontier** is the map's open, unblocked children — the edge of the known. In the viewer, open the map: its open children without a "blocked" marker are the frontier. Take the frontier in ID order, since the frontmatter cannot express any other order.
 
 The answer isn't part of the question — it's recorded on resolution, in the `## Resolution` section the README defines (see [Work through the map](#work-through-the-map)). Assets created while resolving an issue go in a subfolder named after the issue's file, as the README's Attachments section says, and are linked from the issue, not pasted in.
 

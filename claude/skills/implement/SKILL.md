@@ -17,7 +17,7 @@ Take a piece of work from an Asana task to a pull request with its review thread
 
 ## 1. Read the work
 
-The argument is an Asana task URL, or a path to a spec. For a task, read its description, subtasks, and dependencies with `get_task`, **and every comment** with `get_task_stories`, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
+The argument is an Asana task URL, or a path to a spec. A QuestLog ID such as `QL-90` names an issue file in `~/QuestLog/<repo>/`; read that file as the spec. For a task, read its description, subtasks, and dependencies with `get_task`, **and every comment** with `get_task_stories`, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
 
 If the work is not settled enough to build, stop and say so. `/grill` settles it; `/to-tickets` splits it when it is settled but too big for one branch. Neither is something to push through.
 
@@ -26,7 +26,7 @@ If the work is not settled enough to build, stop and say so. `/grill` settles it
 You are in a linked worktree when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. A worktree keeps the branch it was made with and serves one pull request, so check the branch's PR first:
 
 - **The PR has merged or closed:** stop, and ask the user to open a new worktree for this work.
-- **The PR links a different task from the one you were given:** stop and ask the same way. Each task gets its own worktree.
+- **The PR links a different task from the one you were given:** stop and ask the same way. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
 - **No PR, or the PR is still open, for this task:** work on the current branch, and skip the commands below.
 
 In the primary checkout, branch off updated `main`:
@@ -36,7 +36,7 @@ git checkout main && git pull --ff-only
 git checkout -b zorn/<short-slug>
 ```
 
-The slug is a few kebab-case words taken from the task's name, not the whole name. The task URL goes in the PR body, and that link is what ties the work back to its task.
+The slug is a few kebab-case words taken from the task's name, not the whole name. The task URL goes in the PR body, and that link is what ties the work back to its task. For a QuestLog issue, the PR number in the issue's `prs` list is the tie instead.
 
 ## 3. Build with TDD
 
@@ -56,7 +56,7 @@ Move to step 5 only after the user reports that `/code-review` has run and its f
 
 ## 5. Push and open the PR
 
-Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change.
+Push the branch, then hand off to `pull-request`. It owns the body and the opening — the story, the flavor, the reviewer's evidence, and the checks that run before `gh pr create`. Pass it the task URL so it can read the work behind the change. For a QuestLog issue, pass the issue's path instead, so it can record the PR in that issue's `prs` list.
 
 One thing it needs from here that it cannot see on its own: the findings from step 4 that you declined and a reviewer might reasonably overturn — a trade-off you picked a side on, a risk you are accepting, a deviation from the task. Leave out false positives, nits, and out-of-scope suggestions; the PR body is for a reviewer who has not seen the work, not a log of the review.
 

@@ -30,7 +30,7 @@
   },
   "permissions": {
     "additionalDirectories": [
-      "/Users/mikezornek/Issues"
+      "/Users/mikezornek/QuestLog"
     ],
     "allow": [
       "WebFetch(domain:hexdocs.pm)",

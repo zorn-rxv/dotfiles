@@ -33,13 +33,13 @@ When a repo is not listed, ask me which board to use before you create anything.
 
 Write a new task's body in `html_notes`, so its headings and lists render. Leave its custom fields, such as Priority and Status, for the team to set during triage. Leave an existing task's status, section, and assignee as they are unless I ask. The board is shared, and those fields are how the team reads where work stands.
 
-## Local issues
+## QuestLog
 
-Work I have not put in Asana yet lives as Markdown files in `~/Issues/<repo>/`, where `<repo>` is the repo's directory name. Each file is one issue. They sit outside the repo so that no commit, `git clean`, or new worktree can touch them, and so searching the repo will not find them. When I name an issue, or ask what is open, look in that folder. An issue file is a valid argument wherever a skill takes a spec path.
+QuestLog holds my local issues. Work I have not put in Asana yet lives as Markdown files in `~/QuestLog/<repo>/`, where `<repo>` is the repo's directory name. Each file is one issue. They sit outside the repo so that no commit, `git clean`, or new worktree can touch them, and so searching the repo will not find them. When I name an issue, or ask what is open, look in that folder. An issue's identity is its ID, written as `QL-72`, not its file name. An issue file is a valid argument wherever a skill takes a spec path.
 
-`~/Issues/README.md` defines the issue format: the frontmatter fields, the tag list, and how to close an issue. Follow it whenever you write an issue. Give every new issue frontmatter with `status: open`, today's date as `captured` and `updated`, and tags from the existing list. Set `updated` to today whenever you change an issue meaningfully. When I ask to close or cancel an issue, set `status` and `closed`, and add a short `## Resolution` section. Do not delete the file. Only "open" means the work is still to do. A closed or canceled issue is history, not open work.
+`~/QuestLog/README.md` defines the issue format: the frontmatter fields, the tag list, and how to close an issue. Follow it whenever you write an issue. Give every new issue frontmatter with the next free `id` (the build prints it), `status: open`, today's date as `captured` and `updated`, and tags from the existing list. Set `updated` to today whenever you change an issue meaningfully. When I ask to close or cancel an issue, set `status` and `closed`, and add a short `## Resolution` section. Do not delete the file. Only "open" means the work is still to do. A closed or canceled issue is history, not open work.
 
-After changing issues, run `elixir build.exs` in `~/Issues` to refresh `index.html`. `~/Issues` is a local git repository. Commit there after a meaningful batch of issue changes, with a Conventional Commits message, without asking first.
+After changing issues, run `elixir build.exs` in `~/QuestLog` to refresh `index.html`. `~/QuestLog` is a git repository backed up to the private GitHub repo `zorn-rxv/quest_log`. Commit there after a meaningful batch of issue changes, with a Conventional Commits message, and push, without asking first.
 
 ## Write to be scanned
 

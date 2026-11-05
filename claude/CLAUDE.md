@@ -13,6 +13,12 @@ Commits and PRs are attributed solely to the human author running the session.
 
 Write pull request titles as Conventional Commits, `type: subject`, even in a repo that does not enforce them. Use one of `fix`, `feat`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, or `revert`, and add a scope in parentheses only when it helps. Start the subject with a lowercase letter, as in `docs: add a first pass at a ubiquitous language glossary`. When a repo's own lint enforces a different title format, the repo's format wins.
 
+## Production data
+
+When I ask for SQL to run against production, as in Lotus, write it to return aggregates: counts, statuses, and other shapes of the data. Do not select names, emails, NPIs, or other identifying columns unless I ask for them. I can't share production details with you, so a query that needs them to make sense doesn't help me.
+
+The same rule covers anything you write from production results, such as PR comments, issues, and summaries. Report the numbers grouped by a non-identifying field like status, and refer to a practice or person by role ("the largest verified practice"), never by name.
+
 ## Review comment threads
 
 When you address a review comment on a pull request, reply in its thread to say what you did, but leave the thread open. Resolve a thread only when I explicitly tell you to.

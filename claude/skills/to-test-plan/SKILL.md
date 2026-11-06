@@ -11,7 +11,7 @@ The plan goes to `~/Documents/Review Artifacts/pr-<n>-manual-test-plan.md`, and 
 
 ## Steps
 
-1. **Read the PR.** Read its description and diff with `gh pr view <n>` and `gh pr diff <n>`, and the tests it adds. List each behavior a user can see change, plus any branch the PR touches indirectly that deserves a regression check. Done when every changed behavior has a line on that list, and each line is marked as reachable in a browser or covered by tests only.
+1. **Read the PR.** Read its description and diff with `gh pr view <n>` and `gh pr diff <n>`, and the tests it adds. List each behavior a user can see change, plus any branch the PR touches indirectly that deserves a regression check. Done when every changed behavior has a line on that list, and each line is marked as reachable in a browser or covered by tests only. For a docs PR, each claim the document makes about running behavior, and each walkthrough step, is a behavior on that list.
 
 2. **Gather the dev facts.** Look up what the reviewer needs in the repo itself: seed accounts in the seeds file, dev-only routes in the router, and the commands to reset and start the app. Add the app's quirks from the section below. Done when every account and URL a step will name exists in the seeds or the router.
 
@@ -50,4 +50,5 @@ These are facts a reviewer can't find in the seeds or router:
 - Emails go to the dev mailbox at `http://localhost:4000/dev/mailbox` and are never sent. Oban runs in dev, so a queued email arrives within a few seconds.
 - `mix ecto.reset` can't drop the database while the server holds connections, so the reset step and the clean-up step stop the server first.
 - The dev SMS stub accepts only the code `123456`. The TOTP digit inputs submit their form when the sixth digit lands.
-- A data setup the seeds lack, such as a credentials-only review, goes in a `mix run -e '…'` block the reviewer pastes into a second terminal.
+- A review queue row shows only **Claim** until someone claims it, and has no Open link before that. Claiming opens `/staff/review/:id`, and a decision needs a claimed item, so every step that opens or decides a review claims it first.
+- A data setup the seeds lack, such as a credentials-only review, goes in a `mix run -e '…'` block the reviewer pastes into a second terminal. Context functions there need `VerifyDoctor.Identity.register(%{actor_type: "staff", actor_id: id})` first. `StaffUser.email` is virtual, so find a staff user by `role` instead. `psql` needs `PGPASSWORD=postgres` and `-U postgres`.

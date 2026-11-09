@@ -52,8 +52,8 @@ You are the reviewer, working through a **test plan** (see `to-test-plan`) in a 
 - The flash markup has a hidden second copy, so reading flash text naively returns it twice. Use `flashText()`.
 - TOTP digit inputs submit their form when the sixth digit lands. Click submit only if the inputs are still on the page. The dev SMS stub accepts only `123456`.
 - The dev mailbox lists emails as JSON at `/dev/mailbox/json`; `mailbox()` returns them. Oban delivers within a few seconds, so wait before counting.
-- Choose the audit log's action filter option by value, such as `selectOption('staff.change_role')`.
-- Pick a seed account's row by an exact match on its email cell: `filter({ has: page.getByText(email, { exact: true }) })`.
+- After the audited action, open the audit log fresh with `visit()`, since its action menu lists only actions logged before the page loaded. Then choose by value: `page.locator('select[name="action"]').selectOption('staff.change_role')`.
+- Pick a seed account's row by an exact match on its email cell: `page.getByRole('row').filter({ has: page.getByText(email, { exact: true }) })`.
 
 ## Follow-ups to offer
 

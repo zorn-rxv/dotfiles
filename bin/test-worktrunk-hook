@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+#
+# Run worktrunk/hooks/verify-doctor in a throwaway worktree and check what it
+# writes and what it drops.
+#
+# The hook's mistakes are quiet and costly. A worktree whose .local.exs files
+# name the wrong database runs its migrations against the primary checkout's
+# data. A drop that reaches the wrong name deletes it. Fake `wt` and `dropdb`
+# commands stand in for the real tools, so the cases run without worktrunk or
+# Postgres.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+hook="$repo_root/worktrunk/hooks/verify-doctor"
+
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+
+# The fakes. `wt step eval` returns fixed names for the one branch every case
+# uses. `wt config state vars` keeps one file per key. `dropdb` logs its
+# arguments.
+mkdir -p "$scratch/bin"
+cat >"$scratch/bin/wt" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+state="$FAKE_STATE"
+case "$1 $2" in
+  'step eval')
+    case "$3" in
+      *_dev_*) printf 'verify_doctor_dev_feature_x_1a2b\n' ;;
+      *_test_*) printf 'verify_doctor_test_feature_x_3c4d\n' ;;
+      *) printf 'unexpected template: %s\n' "$3" >&2; exit 1 ;;
+    esac
+    ;;
+  'config state')
+    case "$4" in
+      set) printf '%s' "${5#*=}" >"$state/${5%%=*}" ;;
+      get) cat "$state/$5" 2>/dev/null || true ;;
+      clear) rm -f "$state/$5" ;;
+    esac
+    ;;
+  *) printf 'unexpected wt call: %s\n' "$*" >&2; exit 1 ;;
+esac
+FAKE
+cat >"$scratch/bin/dropdb" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_DROPPED"
+FAKE
+chmod +x "$scratch/bin/wt" "$scratch/bin/dropdb"
+
+failed=0
+case_number=0
+
+# A fresh primary checkout and worktree for each case, so no case sees another
+# case's files or stored names.
+new_case() {
+  case_number=$((case_number + 1))
+  primary="$scratch/$case_number/primary"
+  worktree="$scratch/$case_number/worktree"
+  export FAKE_STATE="$scratch/$case_number/state"
+  export FAKE_DROPPED="$scratch/$case_number/dropped"
+  mkdir -p "$primary" "$worktree/config" "$FAKE_STATE"
+  : >"$FAKE_DROPPED"
+  # The global pre-start hook writes this before the verify-doctor one runs.
+  printf 'PORT=12345\n' >"$worktree/.env.worktree"
+}
+
+run_hook() {
+  (cd "$worktree" && PATH="$scratch/bin:$PATH" "$hook" "$@")
+}
+
+check() {
+  local label="$1"
+  shift
+  if "$@"; then
+    printf '  pass  %s\n' "$label"
+  else
+    printf '  FAIL  %s\n' "$label"
+    failed=1
+  fi
+}
+
+new_case
+run_hook setup "$primary" >/dev/null
+check 'setup names the worktree dev database in dev.local.exs' \
+  grep -qF 'database: "verify_doctor_dev_feature_x_1a2b"' "$worktree/config/dev.local.exs"
+check 'setup sets the worktree port in dev.local.exs' \
+  grep -qF 'System.put_env("PORT", "12345")' "$worktree/config/dev.local.exs"
+# CI runs a partition named _seeds, so the suffix must survive the override.
+check 'setup names the worktree test database, partition suffix kept' \
+  grep -qF 'database: "verify_doctor_test_feature_x_3c4d#{System.get_env("MIX_TEST_PARTITION")}"' \
+  "$worktree/config/test.local.exs"
+
+new_case
+mkdir -p "$primary/_build/dev" "$primary/deps/ecto" "$primary/priv" "$primary/.claude"
+printf 'beam\n' >"$primary/_build/dev/app.beam"
+printf 'dep\n' >"$primary/deps/ecto/mix.exs"
+printf 'nif\n' >"$primary/priv/pdf417_nif.so"
+printf '{}\n' >"$primary/.claude/settings.local.json"
+status=0
+run_hook setup "$primary" >/dev/null 2>&1 || status=$?
+check 'setup succeeds when some build state is missing' test "$status" -eq 0
+check 'setup copies _build' grep -qxF beam "$worktree/_build/dev/app.beam"
+check 'setup copies deps' grep -qxF dep "$worktree/deps/ecto/mix.exs"
+check 'setup copies the pdf417 NIF' grep -qxF nif "$worktree/priv/pdf417_nif.so"
+check 'setup copies the Claude local settings' \
+  grep -qxF '{}' "$worktree/.claude/settings.local.json"
+check 'setup creates nothing for missing build state' \
+  test ! -e "$worktree/assets/node_modules" -a ! -e "$worktree/priv/static/assets"
+
+for existing in dev.local.exs test.local.exs; do
+  new_case
+  printf 'my own overrides\n' >"$worktree/config/$existing"
+  status=0
+  run_hook setup "$primary" >/dev/null 2>&1 || status=$?
+  check "setup fails when $existing already exists" test "$status" -ne 0
+  check "setup leaves an existing $existing untouched" \
+    grep -qxF 'my own overrides' "$worktree/config/$existing"
+done
+
+# The database each dropdb call named: its last argument, one per line.
+dropped_names() {
+  awk '{ print $NF }' "$FAKE_DROPPED"
+}
+
+new_case
+run_hook setup "$primary" >/dev/null
+run_hook drop >/dev/null 2>&1 || true
+check 'drop drops the worktree dev and test databases, and nothing else' \
+  test "$(dropped_names)" = "$(printf 'verify_doctor_dev_feature_x_1a2b\nverify_doctor_test_feature_x_3c4d')"
+: >"$FAKE_DROPPED"
+run_hook drop >/dev/null 2>&1 || true
+check 'drop clears the stored names, so a second drop drops nothing' \
+  test ! -s "$FAKE_DROPPED"
+
+# A stored name edited by hand, here to the primary checkout's own database.
+new_case
+run_hook setup "$primary" >/dev/null
+printf 'verify_doctor_dev' >"$FAKE_STATE/verify-doctor-dev-database"
+status=0
+run_hook drop >/dev/null 2>&1 || status=$?
+check 'drop fails when a stored name is not the computed one' test "$status" -ne 0
+check 'drop drops nothing when a stored name is not the computed one' \
+  test ! -s "$FAKE_DROPPED"
+
+# A worktree made before this hook existed, or on a detached HEAD.
+new_case
+status=0
+run_hook drop >/dev/null 2>&1 || status=$?
+check 'drop succeeds when no names are stored' test "$status" -eq 0
+check 'drop drops nothing when no names are stored' test ! -s "$FAKE_DROPPED"
+
+exit "$failed"

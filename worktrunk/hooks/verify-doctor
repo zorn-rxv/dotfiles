@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+#
+# Ready and tear down a verify-doctor worktree without committing anything to
+# that repo. The per-project section in worktrunk/config.toml calls it:
+#
+#   setup <primary>  pre-start: clone build state from the primary checkout,
+#                    and write config/dev.local.exs and test.local.exs
+#   create           post-start: create, migrate, and seed the databases
+#   drop             pre-remove: drop the worktree's two databases
+#
+# verify-doctor already imports both .local.exs files and gitignores them, so
+# they take the place of the committed runtime.exs opt-in that
+# worktrunk/README.md describes.
+
+set -euo pipefail
+
+usage() {
+  printf 'usage: %s setup <primary-worktree>|create|drop\n' "${0##*/}" >&2
+  exit 64
+}
+
+[ "$#" -ge 1 ] || usage
+
+dev_name() { wt step eval "{{ (repo ~ '_dev_' ~ branch) | sanitize_db }}"; }
+test_name() { wt step eval "{{ (repo ~ '_test_' ~ branch) | sanitize_db }}"; }
+
+case "$1" in
+  setup)
+    [ "$#" -eq 2 ] || usage
+
+    # A file already there holds someone's own overrides. Check both before
+    # writing either, so a refusal never leaves half a setup behind.
+    for file in config/dev.local.exs config/test.local.exs; do
+      if [ -e "$file" ]; then
+        printf 'verify-doctor: %s already exists, so this worktree keeps the\n' "$file" >&2
+        printf 'primary databases and port. Move it aside, then run\n' >&2
+        # The backticks are literal, marking the command to run.
+        # shellcheck disable=SC2016
+        printf '`~/.config/worktrunk/hooks/verify-doctor setup %s` here.\n' "$2" >&2
+        exit 1
+      fi
+    done
+
+    # The gitignored state a worktree needs so nothing compiles or downloads
+    # cold. The global pre-start hook copies only what a .worktreeinclude
+    # lists, and verify-doctor has none. On macOS, cp -c clones on APFS, so
+    # the copies take almost no disk until one side changes. GNU cp reads -c
+    # as an SELinux option, so CI, which runs on Linux, copies plainly.
+    primary="$2"
+    clone=()
+    if [ "$(uname -s)" = Darwin ]; then
+      clone=(-c)
+    fi
+    for path in _build deps assets/node_modules priv/static/assets \
+      priv/pdf417_nif.so .claude/settings.local.json; do
+      if [ ! -e "$primary/$path" ] || [ -e "$path" ]; then
+        continue
+      fi
+      mkdir -p "$(dirname "$path")"
+      cp "${clone[@]}" -R "$primary/$path" "$path"
+    done
+
+    port="$(sed -n 's/^PORT=//p' .env.worktree | head -n 1)"
+    dev_database="$(dev_name)"
+    test_database="$(test_name)"
+
+    cat >config/dev.local.exs <<EOF
+# Written by ~/.config/worktrunk/hooks/verify-doctor for this worktree.
+# config/runtime.exs reads PORT after this file, so set the variable it reads.
+import Config
+
+System.put_env("PORT", "$port")
+
+config :verify_doctor, VerifyDoctor.Repo, database: "$dev_database"
+EOF
+
+    # The quoted heredoc keeps #{...} literal for Elixir to interpolate.
+    {
+      printf '# Written by ~/.config/worktrunk/hooks/verify-doctor for this worktree.\n'
+      printf 'import Config\n\n'
+      printf 'config :verify_doctor, VerifyDoctor.Repo,\n'
+      printf '  database: "%s' "$test_database"
+      cat <<'EOF'
+#{System.get_env("MIX_TEST_PARTITION")}"
+EOF
+    } >config/test.local.exs
+
+    # Stored per branch, under keys of this hook's own. The global pre-remove
+    # hook runs worktrunk/hooks/postgres drop, which reads the generic keys
+    # and drops through `mix ecto.drop`. Here that would follow the .local.exs
+    # files, and with them deleted it would drop the primary databases.
+    wt config state vars set "verify-doctor-dev-database=$dev_database"
+    wt config state vars set "verify-doctor-test-database=$test_database"
+    printf 'verify-doctor: port %s, databases %s and %s\n' "$port" "$dev_database" "$test_database"
+    ;;
+  create)
+    # Each command reads the names from the .local.exs files setup wrote.
+    # Refuse without them, or these would run against the primary databases.
+    if [ ! -f config/dev.local.exs ] || [ ! -f config/test.local.exs ]; then
+      printf 'verify-doctor: no .local.exs files; setup must run first\n' >&2
+      exit 1
+    fi
+    mix ecto.setup
+    MIX_ENV="test" mix ecto.create
+    MIX_ENV="test" mix ecto.migrate
+    ;;
+  drop)
+    dev_database="$(wt config state vars get verify-doctor-dev-database)"
+    test_database="$(wt config state vars get verify-doctor-test-database)"
+
+    # Nothing stored: a worktree made before this hook, or a detached HEAD,
+    # which has no branch to store under.
+    if [ -z "$dev_database$test_database" ]; then
+      exit 0
+    fi
+
+    # Drop only the exact names setup computes for this repo and branch. A
+    # stored name edited by hand then can never reach the primary databases,
+    # whose names lack the _dev_ and _test_ infixes.
+    expected_dev="$(dev_name)"
+    expected_test="$(test_name)"
+    if [ "$dev_database" != "$expected_dev" ] || [ "$test_database" != "$expected_test" ]; then
+      printf 'verify-doctor: refusing to drop "%s" and "%s"; expected %s and %s\n' \
+        "$dev_database" "$test_database" "$expected_dev" "$expected_test" >&2
+      exit 1
+    fi
+
+    # dropdb takes the exact name, so the drop never depends on what the
+    # config files say. The connection settings match config/dev.exs.
+    export PGHOST="${POSTGRES_HOST:-localhost}" PGPORT="${PGPORT:-5432}"
+    # The local dev login every verify-doctor checkout uses, not a secret.
+    export PGUSER=postgres PGPASSWORD=postgres # betterleaks:allow
+    # --force ends any session still connected. These databases belong to
+    # this worktree alone, so a session left open has nothing to protect.
+    for database in "$dev_database" "$test_database"; do
+      if ! dropdb --if-exists --force "$database"; then
+        printf '\nverify-doctor: could not drop %s. Is Postgres running?\n' "$database" >&2
+        # shellcheck disable=SC2016
+        printf 'Start it, then run `wt remove` again.\n\n' >&2
+        exit 1
+      fi
+    done
+
+    wt config state vars clear verify-doctor-dev-database
+    wt config state vars clear verify-doctor-test-database
+    printf 'verify-doctor: dropped %s and %s\n' "$dev_database" "$test_database"
+    ;;
+  *)
+    usage
+    ;;
+esac

@@ -10,7 +10,7 @@ This is a public repo on GitHub. Everything committed is world-readable, and it 
 
 `claude/CLAUDE.md` is not this repo's instructions. It is the global instruction file that `bin/link` links to `~/.claude/CLAUDE.md`, so every Claude Code session on the machine loads it. Edit it only when the change is meant for all projects.
 
-Every tracked config file is live. `claude/settings.json`, the hooks, the skills, `fish/config.fish`, `git/ignore`, `herdr/config.toml`, the two `espanso/` files, `zed/settings.json`, and `zsh/zshenv` are symlink targets, so an edit here changes the running setup at once. A change made in Claude Code's or Zed's UI writes through the link and appears here as a diff.
+Every tracked config file is live. `claude/settings.json`, the hooks, the skills, `fish/config.fish`, `git/ignore`, `herdr/config.toml`, `worktrunk/config.toml` and its hooks, the two `espanso/` files, `zed/settings.json`, and `zsh/zshenv` are symlink targets, so an edit here changes the running setup at once. A change made in Claude Code's or Zed's UI writes through the link and appears here as a diff.
 
 ## Commands
 
@@ -22,13 +22,13 @@ Every tracked config file is live. `claude/settings.json`, the hooks, the skills
 
 The sections are `secrets`, `workflows`, `shell`, `skills`, `link`, and `fish`. CI runs exactly this script, one job per section, so a local pass means a green pull request. The tools are `betterleaks`, `actionlint`, `shellcheck`, `python3`, `jq`, and `fish`. `bin/check` exits without checking anything if a selected section's tool is missing.
 
-The individual tests can run alone: `bin/check-skills` (and `bin/check-skills --self-test`), `bin/test-link`, `bin/test-check`, `bin/test-hexdocs-hook`, and `bin/test-fish-history`.
+The individual tests can run alone: `bin/check-skills` (and `bin/check-skills --self-test`), `bin/test-link`, `bin/test-check`, `bin/test-hexdocs-hook`, `bin/test-worktrunk-hook`, and `bin/test-fish-history`.
 
 ## How the pieces connect
 
 - `bin/link` uses one `link_path` helper for every file. A new config category is a new `link_path` call there. It never overwrites a real file or directory, and `bin/test-link` checks that against a throwaway `HOME`. It also sets `core.hooksPath` to `githooks/`, which runs the Betterleaks pre-commit scan.
 - A hook script goes in `claude/hooks/` and is registered in `claude/settings.json` by its `~/.claude/hooks/` path. `bin/test-link` fails when a registered hook does not resolve to a linked script.
-- The `shell` section finds bash scripts by shebang under `bin/`, `claude/`, and `githooks/`, so a new script is linted without registration. It also runs `bin/test-check` and `bin/test-hexdocs-hook`.
+- The `shell` section finds bash scripts by shebang under `bin/`, `claude/`, `worktrunk/hooks/`, and `githooks/`, so a new script is linted without registration. It also runs `bin/test-check`, `bin/test-hexdocs-hook`, and `bin/test-worktrunk-hook`.
 - Each CI job name in `.github/workflows/ci.yml` is a required status check on the `protect-main` ruleset. Renaming or adding a job means updating the ruleset too, or the check silently stops being required. A new `bin/check` section also needs its own job, and `bin/test-check` verifies that each section asks only for its own tool.
 - CI installs its tools at a pinned version with a SHA-256 checksum. A version bump must update the checksum with it.
 

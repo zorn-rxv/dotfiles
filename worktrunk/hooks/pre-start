@@ -19,7 +19,7 @@ fi
 wt step copy-ignored --require-include
 
 # Hash the port from repo and branch, not branch alone, so the same branch name
-# in two repos gets two ports. See docs/adr/0004 for why it goes to a file.
+# in two repos gets two ports. See docs/adr/0002 for why it goes to a file.
 port="$(wt step eval "{{ (repo ~ '-' ~ branch) | hash_port }}")"
 printf 'PORT=%s\n' "$port" >.env.worktree
 wt config state vars set "port=$port"

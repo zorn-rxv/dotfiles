@@ -41,11 +41,10 @@ case "$1" in
       fi
     done
 
-    # The gitignored state a worktree needs so nothing compiles or downloads
-    # cold. The global pre-start hook copies only what a .worktreeinclude
-    # lists, and verify-doctor has none. On macOS, cp -c clones on APFS, so
-    # the copies take almost no disk until one side changes. GNU cp reads -c
-    # as an SELinux option, so CI, which runs on Linux, copies plainly.
+    # Copy the gitignored build state, so nothing compiles cold. The global
+    # hook copies only what a .worktreeinclude lists, and verify-doctor has
+    # none. cp -c clones on APFS, so the copies cost almost no disk. GNU cp
+    # reads -c as an SELinux option, so Linux CI copies plainly.
     primary="$2"
     clone=()
     if [ "$(uname -s)" = Darwin ]; then
@@ -59,6 +58,15 @@ case "$1" in
       mkdir -p "$(dirname "$path")"
       cp "${clone[@]}" -R "$primary/$path" "$path"
     done
+
+    # verify-doctor's .gitignore does not cover the .env.worktree that the
+    # global pre-start hook writes. Without this line, an agent could commit
+    # it. The exclude file is shared by every worktree and never committed.
+    exclude="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+    if ! grep -qxF /.env.worktree "$exclude" 2>/dev/null; then
+      mkdir -p "$(dirname "$exclude")"
+      printf '/.env.worktree\n' >>"$exclude"
+    fi
 
     port="$(sed -n 's/^PORT=//p' .env.worktree | head -n 1)"
     dev_database="$(dev_name)"
@@ -85,10 +93,10 @@ EOF
 EOF
     } >config/test.local.exs
 
-    # Stored per branch, under keys of this hook's own. The global pre-remove
-    # hook runs worktrunk/hooks/postgres drop, which reads the generic keys
-    # and drops through `mix ecto.drop`. Here that would follow the .local.exs
-    # files, and with them deleted it would drop the primary databases.
+    # Stored per branch, under keys only this hook reads. The generic keys
+    # would let worktrunk/hooks/postgres drop through `mix ecto.drop`. That
+    # command follows the .local.exs files. If those files are gone, it drops
+    # the primary databases.
     wt config state vars set "verify-doctor-dev-database=$dev_database"
     wt config state vars set "verify-doctor-test-database=$test_database"
     printf 'verify-doctor: port %s, databases %s and %s\n' "$port" "$dev_database" "$test_database"
@@ -114,9 +122,9 @@ EOF
       exit 0
     fi
 
-    # Drop only the exact names setup computes for this repo and branch. A
-    # stored name edited by hand then can never reach the primary databases,
-    # whose names lack the _dev_ and _test_ infixes.
+    # Drop only the exact names setup computes for this repo and branch. So a
+    # stored name edited by hand can never reach the primary databases, whose
+    # names lack the _dev_ and _test_ infixes.
     expected_dev="$(dev_name)"
     expected_test="$(test_name)"
     if [ "$dev_database" != "$expected_dev" ] || [ "$test_database" != "$expected_test" ]; then

@@ -1,7 +1,7 @@
 # Global worktrunk config: the user layer that runs for every repo. Per-repo
-# steps belong in each repo's committed .config/wt.toml, which worktrunk runs
-# after this file's hooks, or in a [projects] section below for a repo that
-# should not carry them.
+# steps belong in the repo's committed .config/wt.toml, which worktrunk runs
+# after this file's hooks. A repo that should not carry them gets a [projects]
+# section below.
 
 # Blocking, so a repo's own pre-start hook can rely on what this one writes.
 # worktrunk starts user and project post-start hooks together, with no order.
@@ -12,8 +12,8 @@ profile = "~/.config/worktrunk/hooks/pre-start"
 [pre-remove]
 teardown = "~/.config/worktrunk/hooks/pre-remove"
 
-# --no-cd keeps the console out of the new worktree, and --label shortens its
-# sidebar name to the first three words of a zorn/ branch's slug;
+# --no-cd keeps the console out of the new worktree. --label shortens its
+# sidebar name to the first three words of a zorn/ branch's slug.
 # worktrunk/README.md says why for both. --execute runs herdr from inside the
 # new worktree, so `.` is its path.
 [aliases]

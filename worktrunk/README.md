@@ -55,7 +55,7 @@ When removal stops, the worktree and its databases stay in place. Only uncommitt
 | `verify-doctor: could not drop <name>` | Start Postgres, then retry. |
 | `verify-doctor: refusing to drop` | A stored name was edited. Check it with `wt config state vars list`, fix it, then retry. |
 
-To give up on the teardown, `wt remove --no-hooks <branch>` removes the worktree without it. For verify-doctor, first note the names in the worktree's `config/dev.local.exs` and `config/test.local.exs`, then drop each one with `dropdb <name>`. For an app that opts in through its own repo, the steps are these. First note the database names, which are in the worktree's `.env.worktree`. Afterward, close the worktree's Herdr workspace, and drop both databases from the primary checkout:
+To give up on the teardown, `wt remove --no-hooks <branch>` removes the worktree without it. For verify-doctor, first note the names in the worktree's `config/dev.local.exs` and `config/test.local.exs`, then drop each one with `dropdb <name>`. For an app that opts in through its own repo, first note the database names, which are in the worktree's `.env.worktree`. Afterward, close the worktree's Herdr workspace, and drop both databases from the primary checkout:
 
 ```sh
 DEV_DATABASE_NAME=<dev name> mix ecto.drop
@@ -77,11 +77,11 @@ The app makes four changes in its own repo. [zorn/flick#194](https://github.com/
 
 ### From this machine alone: verify-doctor
 
-verify-doctor is a team repo, and only this machine uses worktrees with it, so nothing is committed there. Instead, a `[projects."github.com/*/verify-doctor"]` section in [`config.toml`](config.toml) runs [`hooks/verify-doctor`](hooks/verify-doctor) after the global hooks:
+verify-doctor is a team repo, and only this machine uses worktrees with it. So nothing is committed there. Instead, a `[projects."github.com/*/verify-doctor"]` section in [`config.toml`](config.toml) runs [`hooks/verify-doctor`](hooks/verify-doctor) after the global hooks:
 
-- **`setup`**, in `pre-start`, clones the build state from the primary checkout. It writes `config/dev.local.exs` and `config/test.local.exs`, which verify-doctor already imports and gitignores, with the worktree's database names. `runtime.exs` reads `PORT` after those files, so `dev.local.exs` sets that variable rather than the endpoint's port. The test database keeps the `MIX_TEST_PARTITION` suffix. Setup refuses to overwrite a `.local.exs` file that is already there.
+- **`setup`**, in `pre-start`, clones the build state from the primary checkout. It writes the worktree's database names to `config/dev.local.exs` and `config/test.local.exs`. verify-doctor already imports and gitignores both. It also adds `/.env.worktree` to the repo's `.git/info/exclude`, because verify-doctor's `.gitignore` does not cover it. `runtime.exs` reads `PORT` after those files, so `dev.local.exs` sets that variable rather than the endpoint's port. The test database keeps the `MIX_TEST_PARTITION` suffix. Setup refuses to overwrite a `.local.exs` file that is already there.
 - **`create`**, in `post-start`, creates, migrates, and seeds the databases.
-- **`drop`**, in `pre-remove`, drops both databases with `dropdb` by exact name. It never goes through `mix ecto.drop`, which would follow the `.local.exs` files, and so drop the primary databases if those files were gone. It stores its names under its own keys, so `hooks/postgres drop` finds nothing to do here.
+- **`drop`**, in `pre-remove`, drops both databases with `dropdb` by exact name. It never uses `mix ecto.drop`. That command follows the `.local.exs` files, so it would drop the primary databases if those files were gone. It stores its names under its own keys, so `hooks/postgres drop` finds nothing to do here.
 
 `bin/test-worktrunk-hook` covers `setup` and `drop`.
 

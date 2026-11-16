@@ -24,14 +24,13 @@
 #                worktrunk/hooks, and githooks. actionlint covers the shell
 #                inside workflow `run:` blocks and nothing else; a script
 #                shipped inside a skill or as a hook is otherwise wholly
-#                unchecked. (Written this way
-#                round because a comment beginning with the tool's own name
-#                parses as a shellcheck directive.) It also runs
-#                bin/test-check. That script checks that each section runs
-#                alone and asks only for its own tool. It then runs
-#                bin/test-hexdocs-hook, because a wrong URL rewrite sends
-#                every Elixir doc fetch to the wrong page without an error.
-#                Last it runs bin/test-worktrunk-hook, because a verify-doctor
+#                unchecked. (Written this way round because a comment
+#                beginning with the tool's own name parses as a shellcheck
+#                directive.) It also runs bin/test-check. That script checks
+#                that each section runs alone and asks only for its own tool.
+#                It then runs bin/test-hexdocs-hook, because a wrong URL
+#                rewrite sends every Elixir doc fetch to the wrong page
+#                without an error. Last, it runs bin/test-worktrunk-hook, because a verify-doctor
 #                worktree that names the wrong database migrates or drops the
 #                primary checkout's data.
 #   skills     — bin/check-skills over claude/skills. A skill whose

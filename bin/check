@@ -30,9 +30,9 @@
 #                that each section runs alone and asks only for its own tool.
 #                It then runs bin/test-hexdocs-hook, because a wrong URL
 #                rewrite sends every Elixir doc fetch to the wrong page
-#                without an error. Last, it runs bin/test-worktrunk-hook, because a verify-doctor
-#                worktree that names the wrong database migrates or drops the
-#                primary checkout's data.
+#                without an error. Last, it runs bin/test-worktrunk-hook,
+#                because a verify-doctor worktree that names the wrong
+#                database migrates or drops the primary checkout's data.
 #   skills     — bin/check-skills over claude/skills. A skill whose
 #                frontmatter is malformed never activates and never says so,
 #                which makes it the failure most worth automating.

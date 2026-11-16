@@ -13,31 +13,43 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 hook="$repo_root/worktrunk/hooks/verify-doctor"
+pre_start="$repo_root/worktrunk/hooks/pre-start"
 
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 
-# The fakes. `wt step eval` returns fixed names for the one branch every case
-# uses. `wt config state vars` keeps one file per key. `dropdb` logs its
-# arguments, and fails when FAKE_DROPDB_FAIL is set, as with Postgres down.
+# The fakes. `wt` stores state where real worktrunk does, in git config under
+# the current branch, and fails as it does on a detached HEAD. Its `step eval`
+# returns fixed names and port for the one branch every case uses. `dropdb`
+# logs its arguments, and fails when FAKE_DROPDB_FAIL is set, as with
+# Postgres down.
 mkdir -p "$scratch/bin"
 cat >"$scratch/bin/wt" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
-state="$FAKE_STATE"
+branch() {
+  git symbolic-ref --short -q HEAD || {
+    printf 'not on a branch (detached HEAD)\n' >&2
+    exit 1
+  }
+}
 case "$1 $2" in
+  'step copy-ignored') ;;
   'step eval')
+    branch >/dev/null
     case "$3" in
       *_dev_*) printf 'verify_doctor_dev_feature_x_1a2b\n' ;;
       *_test_*) printf 'verify_doctor_test_feature_x_3c4d\n' ;;
+      *hash_port*) printf '12345\n' ;;
       *) printf 'unexpected template: %s\n' "$3" >&2; exit 1 ;;
     esac
     ;;
   'config state')
+    key="worktrunk.state.$(branch).vars"
     case "$4" in
-      set) printf '%s' "${5#*=}" >"$state/${5%%=*}" ;;
-      get) cat "$state/$5" 2>/dev/null || true ;;
-      clear) rm -f "$state/$5" ;;
+      set) git config "$key.${5%%=*}" "${5#*=}" ;;
+      get) git config "$key.$5" || true ;;
+      clear) git config --unset "$key.$5" || true ;;
     esac
     ;;
   *) printf 'unexpected wt call: %s\n' "$*" >&2; exit 1 ;;
@@ -59,17 +71,27 @@ new_case() {
   case_number=$((case_number + 1))
   primary="$scratch/$case_number/primary"
   worktree="$scratch/$case_number/worktree"
-  export FAKE_STATE="$scratch/$case_number/state"
   export FAKE_DROPPED="$scratch/$case_number/dropped"
-  mkdir -p "$primary" "$worktree/config" "$FAKE_STATE"
-  git init -q "$worktree"
+  mkdir -p "$primary" "$worktree/config"
+  git init -q -b feature-x "$worktree"
+  git -C "$worktree" -c user.name=test -c user.email=test@example.com \
+    commit -q --allow-empty -m init
   : >"$FAKE_DROPPED"
   # The global pre-start hook writes this before the verify-doctor one runs.
   printf 'PORT=12345\n' >"$worktree/.env.worktree"
 }
 
+# Every name stored for any branch, as `key value` lines.
+stored_names() {
+  git -C "$worktree" config --get-regexp '^worktrunk\.state\.' || true
+}
+
 run_hook() {
   (cd "$worktree" && PATH="$scratch/bin:$PATH" "$hook" "$@")
+}
+
+run_pre_start() {
+  (cd "$worktree" && PATH="$scratch/bin:$PATH" "$pre_start")
 }
 
 assert() {
@@ -93,13 +115,16 @@ assert 'setup sets the worktree port in dev.local.exs' \
 assert 'setup names the worktree test database, partition suffix kept' \
   grep -qF 'database: "verify_doctor_test_feature_x_3c4d#{System.get_env("MIX_TEST_PARTITION")}"' \
   "$worktree/config/test.local.exs"
-# verify-doctor's .gitignore does not cover .env.worktree, and nothing is
-# committed there, so the repo's own exclude file has to.
-assert 'setup leaves .env.worktree ignored by git' \
+
+# An Elixir repo that has not opted in may not ignore the .env.worktree that
+# pre-start writes, so pre-start excludes it in the repo's own exclude file.
+new_case
+touch "$worktree/mix.exs"
+run_pre_start >/dev/null
+assert 'pre-start leaves .env.worktree ignored by git' \
   git -C "$worktree" check-ignore -q .env.worktree
-rm "$worktree"/config/*.local.exs
-run_hook setup "$primary" >/dev/null
-assert 'setup adds the exclude line only once' \
+run_pre_start >/dev/null
+assert 'pre-start adds the exclude line only once' \
   test "$(grep -cxF /.env.worktree "$worktree/.git/info/exclude")" -eq 1
 
 new_case
@@ -130,7 +155,7 @@ for existing in dev.local.exs test.local.exs; do
   assert "setup writes no .local.exs file when $existing already exists" \
     test "$(ls "$worktree/config")" = "$existing"
   assert "setup copies and stores nothing when $existing already exists" \
-    test -z "$(ls "$FAKE_STATE")"
+    test -z "$(stored_names)"
 done
 
 dropped_names() {
@@ -156,13 +181,15 @@ status=0
 FAKE_DROPDB_FAIL=1 run_hook drop >/dev/null 2>&1 || status=$?
 assert 'drop fails when dropdb fails' test "$status" -ne 0
 assert 'drop keeps the stored names when dropdb fails' \
-  test "$(cat "$FAKE_STATE/verify-doctor-dev-database")" = verify_doctor_dev_feature_x_1a2b
+  test "$(git -C "$worktree" config worktrunk.state.feature-x.vars.verify-doctor-dev-database)" \
+    = verify_doctor_dev_feature_x_1a2b
 
 # A stored name edited by hand, here to the primary checkout's own database.
 for kind in dev test; do
   new_case
   run_hook setup "$primary" >/dev/null
-  printf 'verify_doctor_%s' "$kind" >"$FAKE_STATE/verify-doctor-$kind-database"
+  git -C "$worktree" config "worktrunk.state.feature-x.vars.verify-doctor-$kind-database" \
+    "verify_doctor_$kind"
   status=0
   run_hook drop >/dev/null 2>&1 || status=$?
   assert "drop fails when the stored $kind name is not the computed one" \
@@ -171,7 +198,22 @@ for kind in dev test; do
     test ! -s "$FAKE_DROPPED"
 done
 
-# A worktree made before this hook existed, or on a detached HEAD.
+# The names stay stored under the branch the worktree was made on. Off that
+# branch, drop must stop rather than exit 0 and leave the databases behind.
+for move in 'checkout -q --detach' 'switch -q -c other-branch'; do
+  new_case
+  run_hook setup "$primary" >/dev/null
+  # shellcheck disable=SC2086 # $move is two words of git arguments.
+  git -C "$worktree" $move
+  status=0
+  run_hook drop >/dev/null 2>"$scratch/stderr" || status=$?
+  assert "drop fails after git $move" test "$status" -ne 0
+  assert "drop drops nothing after git $move" test ! -s "$FAKE_DROPPED"
+  assert "drop names the branch to switch back to after git $move" \
+    grep -qF 'git switch feature-x' "$scratch/stderr"
+done
+
+# A worktree where setup never ran.
 new_case
 status=0
 run_hook drop >/dev/null 2>&1 || status=$?

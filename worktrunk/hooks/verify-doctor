@@ -24,6 +24,26 @@ usage() {
 dev_name() { wt step eval "{{ (repo ~ '_dev_' ~ branch) | sanitize_db }}"; }
 test_name() { wt step eval "{{ (repo ~ '_test_' ~ branch) | sanitize_db }}"; }
 
+# The database name setup wrote into a .local.exs file. Unlike the stored
+# names, it stays whichever branch is checked out. The pattern stops at the
+# test file's #{...} partition suffix.
+recorded_name() {
+  [ -f "config/$1.local.exs" ] || return 0
+  sed -n 's/.*database: "\([a-z0-9_]*\).*/\1/p' "config/$1.local.exs" | head -n 1
+}
+
+# The branch whose stored dev database name is the given value, if any. git
+# config exits 1 when no key matches, which is an answer here, not an error.
+branch_storing() {
+  { git config --get-regexp '^worktrunk\.state\..*\.vars\.verify-doctor-dev-database$' || true; } |
+    awk -v name="$1" '$2 == name {
+      sub(/^worktrunk\.state\./, "", $1)
+      sub(/\.vars\.verify-doctor-dev-database$/, "", $1)
+      print $1
+      exit
+    }'
+}
+
 case "$1" in
   setup)
     [ "$#" -eq 2 ] || usage
@@ -58,15 +78,6 @@ case "$1" in
       mkdir -p "$(dirname "$path")"
       cp "${clone[@]}" -R "$primary/$path" "$path"
     done
-
-    # verify-doctor's .gitignore does not cover the .env.worktree that the
-    # global pre-start hook writes. Without this line, an agent could commit
-    # it. The exclude file is shared by every worktree and never committed.
-    exclude="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
-    if ! grep -qxF /.env.worktree "$exclude" 2>/dev/null; then
-      mkdir -p "$(dirname "$exclude")"
-      printf '/.env.worktree\n' >>"$exclude"
-    fi
 
     port="$(sed -n 's/^PORT=//p' .env.worktree | head -n 1)"
     dev_database="$(dev_name)"
@@ -113,13 +124,41 @@ EOF
     MIX_ENV="test" mix ecto.migrate
     ;;
   drop)
-    dev_database="$(wt config state vars get verify-doctor-dev-database)"
-    test_database="$(wt config state vars get verify-doctor-test-database)"
+    # Stored names are kept per branch, and wt refuses to read them on a
+    # detached HEAD.
+    dev_database=""
+    test_database=""
+    if git symbolic-ref -q HEAD >/dev/null; then
+      dev_database="$(wt config state vars get verify-doctor-dev-database)"
+      test_database="$(wt config state vars get verify-doctor-test-database)"
+    fi
 
-    # Nothing stored: a worktree made before this hook, or a detached HEAD,
-    # which has no branch to store under.
     if [ -z "$dev_database$test_database" ]; then
-      exit 0
+      recorded_dev="$(recorded_name dev)"
+      recorded_test="$(recorded_name test)"
+      # No names anywhere: setup never ran here, so there is nothing to drop.
+      if [ -z "$recorded_dev$recorded_test" ]; then
+        exit 0
+      fi
+
+      # The worktree has databases but is off the branch that stored their
+      # names. Exiting 0 would let wt delete the only record of them.
+      stored_branch="$(branch_storing "$recorded_dev")"
+      # The backticks are literal, marking each command to run.
+      # shellcheck disable=SC2016
+      {
+        if [ -n "$stored_branch" ]; then
+          printf '\nverify-doctor: the databases for this worktree are stored under branch\n'
+          printf '%s, but it is not on that branch now. In the worktree, run\n' "$stored_branch"
+          printf '`git switch %s`, then run `wt remove %s` again.\n\n' "$stored_branch" "$stored_branch"
+        else
+          printf '\nverify-doctor: this worktree names databases in config/*.local.exs, but no\n'
+          printf 'branch stores them. Drop them by hand, then remove the worktree with\n'
+          printf '`wt remove --no-hooks`:\n\n'
+          printf '  `dropdb %s`\n  `dropdb %s`\n\n' "$recorded_dev" "$recorded_test"
+        fi
+      } >&2
+      exit 1
     fi
 
     # Drop only the exact names setup computes for this repo and branch. So a

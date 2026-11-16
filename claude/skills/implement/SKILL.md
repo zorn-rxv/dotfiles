@@ -27,7 +27,8 @@ In a linked worktree, the global Worktrees rule governs this step. Check the bra
 
 - **The PR has merged or closed:** stop, and give the user the `git fetch && wt herdr …` command from that rule.
 - **The PR links a different task from the one you were given:** stop, and give the user the same command. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
-- **No PR, or the PR is still open, for this task:** work on the current branch, and skip the commands below.
+- **No PR yet:** work on the current branch, and skip the commands below.
+- **The PR for this task is still open:** the build is done, and the worktree is back for review. Work on the current branch, and go straight to step 6.
 
 In the primary checkout, branch off updated `main`:
 

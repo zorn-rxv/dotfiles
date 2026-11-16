@@ -51,7 +51,7 @@ After changing issues, run `elixir build.exs` in `~/QuestLog` to refresh `index.
 
 Never switch a linked worktree to another branch. You are in one when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. The worktree's port, databases, and Herdr workspace are stored under its branch. Switching branches strands them, and `wt remove` cannot clean them up. The one exception is switching back to the branch that stores them, when `wt remove` stops and asks for it.
 
-A worktree serves one pull request. Before you start new work in a worktree, check its branch's pull request with `gh pr view --json state`. When the branch has no pull request yet, the worktree is still in use, so carry on. Once it has merged or closed, stop and give me `git fetch && wt herdr <branch> --base origin/<default>` to run from the repo's console. Fill in the repo's default branch. Name the branch as `/implement`'s Branch step names it.
+A worktree serves one pull request. Before you start new work in a worktree, check its branch's pull request with `gh pr view --json state`. When the branch has no pull request yet, or its pull request is open, the worktree is still in use, so carry on. Once the pull request has merged or closed, stop and give me `git fetch && wt herdr <branch> --base origin/<default>` to run from the repo's console. Fill in the repo's default branch. Name the branch as `/implement`'s Branch step names it.
 
 The `--base origin/<default>` flag brings in the merged change. Without it, `wt` branches off the local default branch, which may be stale, and the console's checkout may sit on another branch. The command opens a new worktree in its own Herdr workspace, where a new session picks up the work.
 

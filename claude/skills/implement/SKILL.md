@@ -25,8 +25,8 @@ If the work is not settled enough to build, stop and say so. `/grill` settles it
 
 In a linked worktree, the global Worktrees rule governs this step. Check the branch's PR first:
 
-- **The PR has merged or closed:** stop, and hand over `wt herdr` as that rule says.
-- **The PR links a different task from the one you were given:** stop and hand over `wt herdr` the same way. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
+- **The PR has merged or closed:** stop, and give the user the `git fetch && wt herdr …` command from that rule.
+- **The PR links a different task from the one you were given:** stop, and give the user the same command. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
 - **No PR, or the PR is still open, for this task:** work on the current branch, and skip the commands below.
 
 In the primary checkout, branch off updated `main`:

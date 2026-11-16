@@ -49,9 +49,11 @@ After changing issues, run `elixir build.exs` in `~/QuestLog` to refresh `index.
 
 ## Worktrees
 
-A linked worktree keeps the branch it was made with. You are in one when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. worktrunk stores the worktree's port, databases, and Herdr workspace under its branch. A new branch strands them, and `wt remove` cannot clean them up.
+Never switch a linked worktree to another branch. You are in one when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. The worktree's port, databases, and Herdr workspace are stored under its branch. Switching branches strands them, and `wt remove` cannot clean them up.
 
-A worktree serves one pull request. Follow-up work usually surfaces after that pull request merges, when verifying the change in production turns up a problem. Before you start new work in a worktree, check its branch's pull request with `gh pr view --json state`. Once it has merged or closed, stop and give me `git fetch && wt herdr <branch> --base origin/<default>` to run from the repo's console. Fill in the repo's default branch, and name the branch as `/implement`'s Branch step names it. Basing on the fetched remote brings in the merged change. `wt` otherwise branches off the local default branch, which may be stale. The command opens a new worktree in its own Herdr workspace, where a new session picks up the work.
+A worktree serves one pull request. Before you start new work in a worktree, check its branch's pull request with `gh pr view --json state`. Once it has merged or closed, stop and give me `git fetch && wt herdr <branch> --base origin/<default>` to run from the repo's console. Fill in the repo's default branch. Name the branch as `/implement`'s Branch step names it.
+
+The `--base origin/<default>` flag brings in the merged change. Without it, `wt` branches off the local default branch, which may be stale, and the console's checkout may sit on another branch. The command opens a new worktree in its own Herdr workspace, where a new session picks up the work.
 
 ## Write to be scanned
 

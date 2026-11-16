@@ -41,13 +41,13 @@ wt remove <branch>
 
 The hook closes the worktree's Herdr workspace, which also stops anything still running in it. It then drops the worktree's dev and test databases and clears its stored database names and port. `wt` removes the worktree last, and deletes the branch when it is merged. `wt merge` runs the same teardown, because it removes the worktree too. Run from a console in the worktree's own workspace, either command leaves that workspace open, because closing it would stop `wt` mid-removal. Close it yourself afterward.
 
-**4. Park and resume.** When a branch's pull request waits on review, you can remove the worktree and keep the pull request. The same steps abandon work whose pull request has closed. First check three things: the worktree has no uncommitted changes, its `HEAD` equals the pull request's head commit, and no agent in it is working or waiting on a question. The first two mean GitHub holds every commit. Then, from the repo's console, run:
+**4. Release and resume.** When a branch's pull request waits on review, you can remove the worktree and keep the pull request. The same steps abandon work whose pull request has closed. First check three things: the worktree has no uncommitted changes, its `HEAD` equals the pull request's head commit, and no agent in it is working or waiting on a question. The first two mean GitHub holds every commit. Then, from the repo's console, run:
 
 ```sh
 wt remove --foreground -D <branch>
 ```
 
-The `-D` deletes the local branch, which is not merged. The remote branch and the pull request stay. `/dispatch park` runs the same checks and command.
+The `-D` deletes the local branch, which is not merged. The remote branch and the pull request stay. `/dispatch release` runs the same checks and command.
 
 To pick the work up again, run:
 
@@ -55,7 +55,7 @@ To pick the work up again, run:
 git fetch && wt herdr-resume <branch>
 ```
 
-The fetch updates `origin/<branch>`. `wt herdr-resume` is `wt herdr` without `--create`, so it builds the branch from `origin/<branch>`. Do not use `wt herdr` here: with `--create`, `wt` ignores the remote branch and makes a new one from `main`, without the pull request's commits. The resumed worktree gets new databases, so dev data from before the park is gone.
+The fetch updates `origin/<branch>`. `wt herdr-resume` is `wt herdr` without `--create`, so it builds the branch from `origin/<branch>`. Do not use `wt herdr` here: with `--create`, `wt` ignores the remote branch and makes a new one from `main`, without the pull request's commits. The resumed worktree gets new databases, so dev data from before the release is gone.
 
 ## When removal stops
 

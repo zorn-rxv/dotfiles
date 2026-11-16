@@ -1,7 +1,7 @@
 ---
 name: dispatch
-description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task or QuestLog issue, report on them, park ones whose work is on GitHub, and clean up merged ones.
-argument-hint: "Asana task URLs or QuestLog IDs to launch, or \"status\", \"park <IDs or all>\", or \"clean\""
+description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task or QuestLog issue, report on them, release ones whose work is on GitHub, and clean up merged ones.
+argument-hint: "Asana task URLs or QuestLog IDs to launch, or \"status\", \"release <IDs or all>\", or \"clean\""
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -18,7 +18,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
 - **Launch:** one or more work items, in any mix.
 - **Status:** `status`, or no argument.
-- **Park:** `park`, followed by work items, branches, or `all`.
+- **Release:** `release`, followed by work items, branches, or `all`.
 - **Clean:** `clean`, or `clean up`.
 
 ## Rules for every mode
@@ -51,7 +51,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    - **The planned branch:** `git branch --list <branch>`, `git worktree list`.
    - **A live agent with the same name:** `herdr agent list`.
-   - **An open pull request of yours whose body names the work item:** `gh pr list --state open --author @me --search '"<GID or ID>" in:body' --json number,headRefName`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`. Keep `--author @me`: a teammate's pull request can name the same task, and resuming it would push to their branch. One exception: when no worktree exists for that pull request's `headRefName` and no live agent has the row's agent name, the work item is **parked**, not dispatched. A local branch may still exist, because a plain `wt remove` keeps an unmerged branch. Mark its row "resume", not "skip", and use the pull request's `headRefName` as its branch. Say on the row that the resumed worktree gets new databases, so dev data from before the park is gone.
+   - **An open pull request of yours whose body names the work item:** `gh pr list --state open --author @me --search '"<GID or ID>" in:body' --json number,headRefName`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`. Keep `--author @me`: a teammate's pull request can name the same task, and resuming it would push to their branch. One exception: when no worktree exists for that pull request's `headRefName` and no live agent has the row's agent name, the work item is **released**, not dispatched. A local branch may still exist, because a plain `wt remove` keeps an unmerged branch. Mark its row "resume", not "skip", and use the pull request's `headRefName` as its branch. Say on the row that the resumed worktree gets new databases, so dev data from before the release is gone.
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
@@ -83,17 +83,17 @@ Build the table once for each request, and do not poll. Give each linked worktre
 | Agent | `herdr agent list`, matched on `cwd`; the agent name identifies the work item; "none" when no agent matches |
 | Pull request | `gh pr list --head <branch> --state all --json number,state,headRefOid`: the open one, else one whose `headRefOid` equals the worktree's `HEAD`, else "none". A merged pull request at another commit belongs to an earlier branch with the same name. |
 | Checks | `gh pr checks <number>`, when a pull request exists |
-| Parkable | "yes" when the worktree passes Park's check, else the first reason it fails |
+| Releasable | "yes" when the worktree passes Release's check, else the first reason it fails |
 
 Status is done when every linked worktree has a row with all six columns filled, or marked "none".
 
-## Park
+## Release
 
-Park removes a worktree whose work is safe on GitHub, so the user can move on while its pull request waits. The pull request and the remote branch stay. Launch resumes it later. [ADR 0004](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0004-park-removes-what-github-holds.md) records why Park, unlike Clean, removes unmerged work.
+Release removes a worktree whose work is safe on GitHub, so the user can move on while its pull request waits. The pull request and the remote branch stay. Launch resumes it later. [ADR 0004](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0004-release-needs-a-pushed-head.md) records why Release, unlike Clean, removes unmerged work.
 
-1. **Find the worktrees.** The argument names work items, branches, or `all`. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list` with a `HEAD` equal to its `headRefOid`. When none does, report the work item as not parkable. `all` means every linked worktree that passes the check in step 2. Never park the primary checkout.
+1. **Find the worktrees.** The argument names work items, branches, or `all`. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list` with a `HEAD` equal to its `headRefOid`. When none does, report the work item as not releasable. `all` means every linked worktree that passes the check in step 2. Never release the primary checkout.
 
-2. **Check each one.** A worktree is parkable only when all of these hold:
+2. **Check each one.** A worktree is releasable only when all of these hold:
 
    - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` equal to `git -C <path> rev-parse HEAD`. That proves GitHub has every commit.
    - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
@@ -101,9 +101,9 @@ Park removes a worktree whose work is safe on GitHub, so the user can move on wh
 
    Leave any worktree that fails a check, and report the reason. Never push, commit, or stash to make one pass, and never pass `-f`. Those choices are the user's.
 
-3. **Wait for "go", then remove.** Show the list, and say that parking drops each worktree's dev and test databases. Wait for "go", because `-D` deletes local branches that are not merged. Then, for each one in turn, run step 2's three checks again. An idle agent can wake during the wait, for example on review feedback, and commit without pushing. A clean tree does not stop `wt remove`, so `-D` would delete that commit. Skip any worktree that now fails, and report why. Otherwise run `wt remove --foreground -D <branch>`. When `wt remove` refuses, follow its message. If a Herdr workspace stays open after a removal, close it with `herdr workspace close <id>`.
+3. **Wait for "go", then remove.** Show the list, and say that releasing drops each worktree's dev and test databases. Wait for "go", because `-D` deletes local branches that are not merged. Then, for each one in turn, run step 2's three checks again. An idle agent can wake during the wait, for example on review feedback, and commit without pushing. A clean tree does not stop `wt remove`, so `-D` would delete that commit. Skip any worktree that now fails, and report why. Otherwise run `wt remove --foreground -D <branch>`. When `wt remove` refuses, follow its message. If a Herdr workspace stays open after a removal, close it with `herdr workspace close <id>`.
 
-Park is done when every named worktree is removed or reported with its reason for staying. For each parked worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it.
+Release is done when every named worktree is removed or reported with its reason for staying. For each released worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it.
 
 ## Clean
 

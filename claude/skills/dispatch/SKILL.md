@@ -1,7 +1,7 @@
 ---
 name: dispatch
-description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task or QuestLog issue, report on them, and clean up merged ones.
-argument-hint: "Asana task URLs or QuestLog IDs to launch, or \"status\", or \"clean\""
+description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task or QuestLog issue, report on them, park ones whose work is on GitHub, and clean up merged ones.
+argument-hint: "Asana task URLs or QuestLog IDs to launch, or \"status\", \"park <IDs or all>\", or \"clean\""
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -14,7 +14,7 @@ metadata:
 
 You are the dispatcher. You send agents out to their own worktrees, know where each one is, and bring the finished ones back. Your job is coordination; each work item belongs to its agent.
 
-A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. Pick the mode from the argument: one or more work items, in any mix, mean **Launch**; `status` means **Status**; `clean`, or `clean up`, means **Clean**. With no argument, run Status.
+A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. Pick the mode from the argument: one or more work items, in any mix, mean **Launch**; `status` means **Status**; `park` followed by work items, branches, or `all` means **Park**; `clean`, or `clean up`, means **Clean**. With no argument, run Status.
 
 ## Rules for every mode
 
@@ -46,13 +46,15 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    - **The planned branch:** `git branch --list <branch>`, `git worktree list`.
    - **A live agent with the same name:** `herdr agent list`.
-   - **An open pull request whose body names the work item:** `gh pr list --state open --search '"<GID or ID>" in:body'`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`.
+   - **An open pull request whose body names the work item:** `gh pr list --state open --search '"<GID or ID>" in:body' --json number,headRefName`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`.
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
+   One case is not a skip. A work item is **parked** when it has an open pull request but no local branch and no worktree for that pull request's `headRefName`. Mark its row "resume", and use the pull request's `headRefName` as the branch. The user cannot rename it.
+
    The user may edit any branch name in the table. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
 
-5. **Create each worktree.** Run `wt herdr <branch>`. Its last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
+5. **Create each worktree.** Run `wt herdr <branch>`. For a "resume" row, run `wt herdr-resume <branch>` instead. `wt herdr` passes `--create`, which ignores the remote branch and starts a new one from `main` without the pull request's commits. Either command's last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
 
 6. **Start each agent** under its agent name:
 
@@ -61,7 +63,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
    herdr agent prompt ql-90 "/implement QL-90" --wait --until working --until blocked
    ```
 
-   For a task, the prompt is `/implement <task URL>`. The prompt returns once the agent starts its turn. Each agent pauses when `/implement` needs a decision, so `blocked` is expected.
+   For a task, the prompt is `/implement <task URL>`. The prompt returns once the agent starts its turn. Each agent pauses when `/implement` needs a decision, so `blocked` is expected. A resumed agent finds its open pull request and picks up at the review feedback.
 
 Launch is done when `herdr agent list` shows one agent per launched work item, each with its `cwd` in its own worktree. Report the Status table.
 
@@ -76,8 +78,27 @@ Build the table once for each request, and do not poll. Give each linked worktre
 | Agent | `herdr agent list`, matched on `cwd`; the agent name identifies the work item; "none" when no agent matches |
 | Pull request | `gh pr list --head <branch> --state all --json number,state,headRefOid`: the open one, else one whose `headRefOid` equals the worktree's `HEAD`, else "none". A merged PR at another commit belongs to an earlier branch with the same name. |
 | Checks | `gh pr checks <number>`, when a pull request exists |
+| Parkable | "yes" when the worktree passes Park's check, else the first reason it fails |
 
-Status is done when every linked worktree has a row with all five columns filled, or marked "none".
+Status is done when every linked worktree has a row with all six columns filled, or marked "none".
+
+## Park
+
+Park removes a worktree whose work is safe on GitHub, so the user can move on while its pull request waits. The pull request and the remote branch stay. Launch resumes it later.
+
+1. **Find the worktrees.** The argument names work items, branches, or `all`. For a work item, find its pull request with `gh pr list --state all --search '"<GID or ID>" in:body' --json number,state,headRefName,headRefOid`, then the worktree on that `headRefName` in `git worktree list`. `all` means every linked worktree that passes the check in step 2. Never park the primary checkout.
+
+2. **Check each one.** A worktree is parkable only when all of these hold:
+
+   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` equal to `git -C <path> rev-parse HEAD`. That proves GitHub has every commit.
+   - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
+   - **Its agent is idle:** `herdr agent list` shows no agent with its `cwd` in the worktree that is `working` or `blocked`. Removal kills the agent, along with any question it is waiting on.
+
+   Leave any worktree that fails a check, and report the reason. Never push, commit, or stash to make one pass, and never pass `-f`. Those choices are the user's.
+
+3. **Remove.** Show the list, then run `wt remove --foreground -D <branch>` for each one. The `-D` deletes the local branch, which is not merged. When `wt remove` refuses, follow its message.
+
+Park is done when every named worktree is removed or reported with its reason for staying. For each parked worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it.
 
 ## Clean
 

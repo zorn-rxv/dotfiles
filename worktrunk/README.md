@@ -41,6 +41,16 @@ wt remove <branch>
 
 The hook closes the worktree's Herdr workspace, which also stops anything still running in it. It then drops the worktree's dev and test databases and clears its stored database names and port. `wt` removes the worktree last, and deletes the branch when it is merged. `wt merge` runs the same teardown, because it removes the worktree too. Run from a console in the worktree's own workspace, either command leaves that workspace open, because closing it would stop `wt` mid-removal. Close it yourself afterward.
 
+**4. Park and resume.** When a branch's pull request is open but the work waits on review, you can remove the worktree and keep the pull request. First check that the work tree is clean and that `HEAD` equals the pull request's head commit, so GitHub holds every commit. Then run `wt remove -D <branch>`. The `-D` deletes the local branch, which is not merged yet. The remote branch and the pull request stay.
+
+To pick the work up again, run:
+
+```sh
+wt herdr-resume <branch>
+```
+
+It is `wt herdr` without `--create`, so it builds the branch from `origin/<branch>`. Do not use `wt herdr` here: with `--create`, `wt` ignores the remote branch and makes a new one from `main`, without the pull request's commits. The resumed worktree gets new databases, so dev data from before the park is gone.
+
 ## When removal stops
 
 When removal stops, the worktree and its databases stay in place. Only uncommitted changes stop it before the hook runs. Every other stop comes after the hook has closed the worktree's Herdr workspace, so reopen it with `herdr worktree open --path <worktree>` if you need it. Each message says what to do.
@@ -88,7 +98,7 @@ verify-doctor is a team repo, and only this machine uses worktrees with it. So n
 
 ## What is here
 
-- [`config.toml`](config.toml) registers the hooks and the `wt herdr` alias.
+- [`config.toml`](config.toml) registers the hooks and the `wt herdr` and `wt herdr-resume` aliases.
 - [`hooks/pre-start`](hooks/pre-start) copies build state and writes the port, for any repo with a `mix.exs`.
 - [`hooks/postgres`](hooks/postgres) names, creates, and drops per-worktree databases for an app that opts in.
 - [`hooks/herdr`](hooks/herdr) closes a worktree's Herdr workspace.

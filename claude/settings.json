@@ -4,17 +4,21 @@
     "pr": "",
     "sessionUrl": false
   },
-  "enabledPlugins": {
-    "cc-plugin-you-should-know@builtin": true,
-    "frontend-design@claude-plugins-official": true
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:hexdocs.pm)",
+      "WebFetch(domain:*.hexdocs.pm)",
+      "Bash(/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --screenshot=*)"
+    ],
+    "deny": [
+      "AskUserQuestion"
+    ],
+    "defaultMode": "auto",
+    "additionalDirectories": [
+      "/Users/mikezornek/QuestLog"
+    ]
   },
-  "feedbackSurveyRate": 0,
-  "model": "opus[1m]",
-  "modelSettings": {
-    "claude-opus-5-5": {
-      "effortLevel": "medium"
-    }
-  },
+  "model": "opus",
   "hooks": {
     "PreToolUse": [
       {
@@ -28,28 +32,24 @@
       }
     ]
   },
-  "permissions": {
-    "additionalDirectories": [
-      "/Users/mikezornek/QuestLog"
-    ],
-    "allow": [
-      "WebFetch(domain:hexdocs.pm)",
-      "WebFetch(domain:*.hexdocs.pm)",
-      "Bash(/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --screenshot=*)"
-    ],
-    "defaultMode": "auto",
-    "deny": [
-      "AskUserQuestion"
-    ]
-  },
   "statusLine": {
-    "command": "bash ~/.claude/statusline-command.sh",
-    "type": "command"
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
   },
-  "theme": "dark",
+  "enabledPlugins": {
+    "cc-plugin-you-should-know@builtin": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "feedbackSurveyRate": 0,
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  },
   "tui": "fullscreen",
   "voice": {
     "enabled": true,
     "mode": "hold"
-  }
+  },
+  "theme": "dark"
 }

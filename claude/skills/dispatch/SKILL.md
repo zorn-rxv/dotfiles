@@ -26,22 +26,27 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
 ## Launch
 
-1. **Check the repo isolates worktrees.** Run `wt hook show pre-start`. It must list a hook that only this repo gets. That hook comes from a `[projects]` section in `~/.config/worktrunk/config.toml`, or from the repo's own `.config/wt.toml`. Hooks in the global `[pre-start]` table run for every repo, so they do not count. Without a repo-only hook, every agent shares the primary checkout's port and databases, so stop and say so.
+1. **Check the repo isolates worktrees.** Run `wt config show`. The repo isolates worktrees in either of two cases:
+
+   - **The user config has a section for it:** a `[projects."<pattern>".pre-start]` section whose pattern matches the Identifier under PROJECT CONFIG. A `*` in the pattern matches any run of characters.
+   - **The repo has its own config:** PROJECT CONFIG shows a `.config/wt.toml` with a `pre-start` hook.
+
+   `wt hook show` cannot settle this, because it lists global and per-project user hooks together. Without either case, every agent shares the primary checkout's port and databases, so stop and say so.
 
 2. **Check each work item belongs to this repo.** An Asana task must be in the project that the global Asana table lists for this repo; read its `memberships` with `get_task`. A QuestLog issue must have a file in `~/QuestLog/<repo>/` whose frontmatter `id` matches. If one belongs elsewhere, stop, name it, and launch none of the batch.
 
-3. **Check the primary checkout and Postgres.** The checkout must be on `main` with a clean tree; if not, stop and say what is wrong. Run `git pull --ff-only`, so every worktree starts from the latest `main`. Then run `pg_isready`. Each worktree creates its databases in a background step, which fails without telling anyone when Postgres is down.
+3. **Check the primary checkout and Postgres.** The checkout must be on `main` with a clean tree; if not, stop and say what is wrong. Run `git pull --ff-only`, so every worktree starts from the latest `main`. Then run `pg_isready`, and stop if Postgres is not accepting connections. Each worktree creates its databases in a background step, which fails without telling anyone when Postgres is down.
 
 4. **Plan, and wait for "go".** Read each work item's name and state: `get_task` for a task, the frontmatter for a QuestLog issue. Give each one:
 
    - **An agent name** that carries the work item: `ql-90` for a QuestLog issue, and `asana-` plus the last six digits of the GID for a task.
    - **A branch** named as `/implement`'s Branch step names it.
 
-   Show one row per work item with its ID, name, agent name, and branch. Mark a row "skip" when its task is completed or its issue is closed, or when it is already dispatched. It is already dispatched when any of these exists:
+   Show one row per work item with its ID, name, agent name, and branch. Mark a row "skip" when its task is completed or its issue is closed, when its branch or agent name repeats an earlier row's, or when it is already dispatched. It is already dispatched when any of these exists:
 
    - **The planned branch:** `git branch --list <branch>`, `git worktree list`.
    - **A live agent with the same name:** `herdr agent list`.
-   - **An open pull request whose body names the task URL or the QuestLog ID:** `gh pr list --state open --search "<url or ID> in:body"`.
+   - **An open pull request whose body names the work item:** `gh pr list --state open --search '"<GID or ID>" in:body'`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`.
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
@@ -69,7 +74,7 @@ Build the table once for each request, and do not poll. Give each linked worktre
 | Label | `herdr workspace list`, matched on `worktree.checkout_path` |
 | Branch | `git worktree list` |
 | Agent | `herdr agent list`, matched on `cwd`; the agent name identifies the work item; "none" when no agent matches |
-| Pull request | `gh pr list --head <branch> --state all --json number,state,createdAt`; the newest one |
+| Pull request | `gh pr list --head <branch> --state all --json number,state,headRefOid`: the open one, else one whose `headRefOid` equals the worktree's `HEAD`, else "none". A merged PR at another commit belongs to an earlier branch with the same name. |
 | Checks | `gh pr checks <number>`, when a pull request exists |
 
 Status is done when every linked worktree has a row with all five columns filled, or marked "none".
@@ -83,7 +88,7 @@ Status is done when every linked worktree has a row with all five columns filled
 2. **Find the candidates.** A worktree qualifies only when git and GitHub both say it is finished:
 
    - **Git:** it appears in `wt step prune --dry-run --min-age 0s --format=json` with `kind` `worktree`. That means its work is in `main`.
-   - **GitHub:** a pull request for its branch is `MERGED`, and that pull request's `headRefOid` equals the worktree's `HEAD`. Use `gh pr list --head <branch> --state merged --json headRefOid` and `git -C <path> rev-parse HEAD`.
+   - **GitHub:** any merged pull request for its branch has a `headRefOid` equal to the worktree's `HEAD`. Use `gh pr list --head <branch> --state merged --json headRefOid`, and compare every result with `git -C <path> rev-parse HEAD`.
 
    A worktree with no commits also appears in prune, as `same commit as`, or as `ancestor of` once `main` moves on. Its agent has likely just started. Only a merged pull request at the worktree's own `HEAD` tells it apart, because a follow-up branch can reuse a merged branch's name. Leave any worktree that fails either check, including one whose pull request lookup fails, and report it with its reason.
 

@@ -1,5 +1,7 @@
 # Dispatch Cleans Up via Prune
 
+> **Extended by [ADR 0004](0004-release-needs-a-pushed-head.md)** — `/dispatch release` removes unmerged worktrees, including one whose pull request closed, when the pull request holds the worktree's `HEAD`.
+
 `/dispatch` launches agents into verify-doctor worktrees, one per Asana task or QuestLog issue, and later removes the finished ones. It removes a worktree only when two checks agree. A dry run of `wt step prune` must list it, so its work is in `main`. A pull request must have merged from the worktree's own `HEAD`. Prune alone cannot tell a finished worktree from one whose agent just started, and GitHub alone cannot tell whether removing the branch loses work.
 
 ## Consequences & Tradeoffs

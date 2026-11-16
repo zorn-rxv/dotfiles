@@ -19,7 +19,7 @@ teardown = "~/.config/worktrunk/hooks/pre-remove"
 [aliases]
 herdr = 'wt switch --create {{ args }} --no-cd --execute herdr -- worktree open --cwd {{ primary_worktree_path }} --path . --focus --label {% set words = args[0] | replace("zorn/", "") | split("-") %}{{ words[0:3] | join(" ") if args[0] is startingwith("zorn/") else args[0] }}'
 # Resumes a branch that exists on origin. --create would start from main and
-# drop the pull request's commits.
+# drop the pull request's commits. Keep the rest in sync with herdr above.
 herdr-resume = 'wt switch {{ args }} --no-cd --execute herdr -- worktree open --cwd {{ primary_worktree_path }} --path . --focus --label {% set words = args[0] | replace("zorn/", "") | split("-") %}{{ words[0:3] | join(" ") if args[0] is startingwith("zorn/") else args[0] }}'
 
 # verify-doctor opts in from this machine alone, with nothing committed to its

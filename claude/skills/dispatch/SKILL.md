@@ -35,7 +35,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
 2. **Check each work item belongs to this repo.** An Asana task must be in the project that the global Asana table lists for this repo; read its `memberships` with `get_task`. A QuestLog issue must have a file in `~/QuestLog/<repo>/` whose frontmatter `id` matches. If one belongs elsewhere, stop, name it, and launch none of the batch.
 
-3. **Check the primary checkout and Postgres.** The checkout must be on `main` with a clean tree; if not, stop and say what is wrong. Run `git pull --ff-only`, so every worktree starts from the latest `main`. Then run `pg_isready`, and stop if Postgres is not accepting connections. Each worktree creates its databases in a background step, which fails without telling anyone when Postgres is down.
+3. **Check the primary checkout and Postgres.** The checkout must be on `main` with a clean tree; if not, stop and say what is wrong. Run `git pull --ff-only`, so every worktree starts from the latest `main`. Then run `pg_isready -h localhost`, and stop if Postgres is not accepting connections. The `-h` matters: without it, `pg_isready` tries the Unix socket in `/tmp`, which this machine's Postgres does not listen on, so it reports "no response" while TCP works. Each worktree creates its databases in a background step, which fails without telling anyone when Postgres is down.
 
 4. **Plan, and wait for "go".** Read each work item's name and state: `get_task` for a task, the frontmatter for a QuestLog issue. Give each one:
 

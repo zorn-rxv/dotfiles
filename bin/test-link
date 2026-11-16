@@ -42,8 +42,10 @@ for src in "$repo_root/claude/skills"/*/; do
   links+=(".claude/skills/$name=claude/skills/$name")
 done
 
+# wt reads XDG_CONFIG_HOME before HOME, so pin both to the throwaway home.
+# Otherwise the run could write into the real fish config.
 run_link() {
-  HOME="$home" "$repo_root/bin/link" >"$out" 2>&1
+  HOME="$home" XDG_CONFIG_HOME="$home/.config" "$repo_root/bin/link" >"$out" 2>&1
 }
 
 points_at() {
@@ -73,6 +75,13 @@ for entry in "${links[@]}"; do
 done
 assert 'a fresh HOME skips nothing' grep -q ' 0 skipped, 0 orphaned$' "$out"
 assert 'a fresh HOME warns about nothing' not_grep '^  WARN' "$out"
+# CI installs no wt, so this case runs only where wt is on PATH.
+if command -v wt >/dev/null; then
+  assert 'a fresh HOME gets the wt fish function' \
+    test -f "$home/.config/fish/functions/wt.fish"
+  assert 'a fresh HOME gets the wt fish completions' \
+    test -f "$home/.config/fish/completions/wt.fish"
+fi
 # Without it the pre-commit secret scan never runs, and nothing says so.
 assert 'core.hooksPath points at githooks' \
   test "$(git -C "$repo_root" config core.hooksPath)" = githooks

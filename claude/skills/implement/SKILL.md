@@ -23,10 +23,10 @@ If the work is not settled enough to build, stop and say so. `/grill` settles it
 
 ## 2. Branch
 
-You are in a linked worktree when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. A worktree keeps the branch it was made with and serves one pull request, so check the branch's PR first:
+In a linked worktree, the global Worktrees rule governs this step. Check the branch's PR first:
 
-- **The PR has merged or closed:** stop, and ask the user to open a new worktree for this work.
-- **The PR links a different task from the one you were given:** stop and ask the same way. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
+- **The PR has merged or closed:** stop, and hand over `wt herdr` as that rule says.
+- **The PR links a different task from the one you were given:** stop and hand over `wt herdr` the same way. Each task gets its own worktree. For a QuestLog issue, the PR belongs to it only when the issue's `prs` list holds the PR's number.
 - **No PR, or the PR is still open, for this task:** work on the current branch, and skip the commands below.
 
 In the primary checkout, branch off updated `main`:

@@ -47,6 +47,12 @@ QuestLog holds my local issues. Work I have not put in Asana yet lives as Markdo
 
 After changing issues, run `elixir build.exs` in `~/QuestLog` to refresh `index.html`. `~/QuestLog` is a git repository backed up to the private GitHub repo `zorn-rxv/quest_log`. Commit there after a meaningful batch of issue changes, with a Conventional Commits message, and push, without asking first.
 
+## Worktrees
+
+A linked worktree keeps the branch it was made with. You are in one when the two paths that `git rev-parse --path-format=absolute --git-dir --git-common-dir` prints differ. worktrunk stores the worktree's port, databases, and Herdr workspace under its branch. A new branch strands them, and `wt remove` cannot clean them up.
+
+A worktree serves one pull request. Follow-up work usually surfaces after that pull request merges, when verifying the change in production turns up a problem. Before you start new work in a worktree, check its branch's pull request with `gh pr view --json state`. Once it has merged or closed, stop and give me `git fetch && wt herdr <branch> --base origin/<default>` to run from the repo's console. Fill in the repo's default branch, and name the branch as `/implement`'s Branch step names it. Basing on the fetched remote brings in the merged change. `wt` otherwise branches off the local default branch, which may be stale. The command opens a new worktree in its own Herdr workspace, where a new session picks up the work.
+
 ## Write to be scanned
 
 Length changes how a reader engages. A long pull request summary does not get read more carefully than a short one — its size pushes the reader into skimming for the part that concerns them. Keep prose tight so that what you wrote is what gets read.

@@ -23,9 +23,9 @@ Wayfinder is **planning** by default: each issue resolves a decision, and the ma
 
 The map and its decision issues are QuestLog issues, so the global QuestLog rule and `~/QuestLog/README.md` govern their files: the folder, the frontmatter, the issue IDs, and how to close one. Read the README before charting. This skill adds only what wayfinding needs on top of it.
 
-All of an effort's issues go in the repo folder of the repo you are working in, `~/QuestLog/<repo>/`. Name each file after its title in kebab case. Take IDs from the next free ID that `elixir build.exs` prints, counting up from it when you create several issues in one pass.
+All of an effort's issues go in the repo folder of the repo you are working in, `~/QuestLog/<repo>/`. Name each file after its title in kebab case. File each issue with `elixir ~/QuestLog/ql.exs new`, which takes the next free ID under a lock, then write its body.
 
-After each pass of changes — charting, or resolving one issue — run `elixir build.exs` in `~/QuestLog`, fix any warning it prints about the issues you touched, then commit and push as the global QuestLog rule says. Another session may have created an issue since you read the next free ID, so a duplicate-ID warning means renumber yours.
+After each pass of changes — charting, or resolving one issue — run `elixir ~/QuestLog/build.exs`, fix any warning it prints about the issues you touched, then commit and push with `ql.exs sync`, as the global QuestLog rule says.
 
 ## Refer by name
 

@@ -17,7 +17,7 @@ Take a piece of work from an Asana task to a pull request with its review thread
 
 ## 1. Read the work
 
-The argument is an Asana task URL, or a path to a spec. A QuestLog ID such as `QL-90` names an issue file in `~/QuestLog/<repo>/`; read that file as the spec. For a task, read its description, subtasks, and dependencies with `get_task`, **and every comment** with `get_task_stories`, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
+The argument is an Asana task URL, or a path to a spec. A QuestLog ID such as `QL-90` names an issue file in `~/QuestLog/<repo>/`; `elixir ~/QuestLog/ql.exs path QL-90` prints its path, and that file is the spec. For a task, read its description, subtasks, and dependencies with `get_task`, **and every comment** with `get_task_stories`, as the global Asana rule says. Decisions get made in comment threads, and a read of the description alone misses them.
 
 If the work is not settled enough to build, stop and say so. `/grill` settles it; `/to-tickets` splits it when it is settled but too big for one branch. Neither is something to push through.
 
@@ -54,6 +54,8 @@ Apply what it recommends. Findings arrive as a numbered decision list, and that 
 Then stop and ask the user to run `/code-review`. It hunts correctness bugs, which `diff-review` targets only for races between users, and no bot reviews the PR after it opens — so this is the last bug-hunting pass before a person sees the change. Do not run it yourself: the user picks its effort level, and the higher levels are costly. When the change is large or risky, say so, so the user can pick a higher level. Apply its findings the same way as `diff-review`'s.
 
 Move to step 5 only after the user reports that `/code-review` has run and its findings are settled, or says to skip it. Do not proceed as though the pass happened when it did not.
+
+Then list the pages the change touches, so the user can check them by hand without asking. Give each one as a full URL on this worktree's dev server port, with the role to sign in as and what to look for. When the change shows on no page, say so in one line.
 
 ## 5. Push and open the PR
 

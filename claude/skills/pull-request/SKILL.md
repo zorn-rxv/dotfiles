@@ -82,6 +82,6 @@ gh pr create --draft --title "<title>" --body-file <path> --attach <scratch>/bef
 
 A failed attachment still creates the PR and prints its URL, but `gh` exits non-zero. Recover with `gh pr edit <n> --body-file <path>` and every `--attach` again, since the original body file still holds the local paths.
 
-When `gh pr create` has made a new PR for a QuestLog issue, append its number to that issue's `prs` list now, while the number is at hand, and set its `updated` date. This holds after a failed attachment too, once the recovery is done. Skip it when you only rewrote an existing PR's body, or when `prs` already lists the number. Then run `elixir build.exs` in `~/QuestLog`, and commit and push QuestLog, as the global QuestLog rule says.
+When `gh pr create` has made a new PR for a QuestLog issue, add its number to that issue's `prs` list now, while the number is at hand, with `elixir ~/QuestLog/ql.exs pr <ID> <number>`. This holds after a failed attachment too, once the recovery is done. Skip it when you only rewrote an existing PR's body, or when `prs` already lists the number. Then commit and push QuestLog with `ql.exs sync`, as the global QuestLog rule says.
 
 Report the PR as a draft, and say that `gh pr ready <n>` asks for peer review once the user is happy with it. Reviews come from people after that, so the work is not finished when the draft exists. `implement` step 6 owns the review loop and its script.

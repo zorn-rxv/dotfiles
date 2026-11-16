@@ -53,6 +53,14 @@ link_path "$repo_root/claude/statusline-command.sh" \
 # ~/.claude/hooks, so the whole directory can be a link.
 link_path "$repo_root/claude/hooks" "$HOME/.claude/hooks" 'hooks'
 
+# worktrunk's global config and the hook scripts it calls. Link the file, not
+# ~/.config/worktrunk itself: worktrunk writes approvals.toml there, and that
+# is machine state, not config to track.
+link_path "$repo_root/worktrunk/config.toml" \
+  "$HOME/.config/worktrunk/config.toml" 'worktrunk/config.toml'
+link_path "$repo_root/worktrunk/hooks" \
+  "$HOME/.config/worktrunk/hooks" 'worktrunk/hooks'
+
 # Herdr's config file, not ~/.config/herdr itself: Herdr keeps its sockets,
 # logs, and session snapshots there.
 link_path "$repo_root/herdr/config.toml" \

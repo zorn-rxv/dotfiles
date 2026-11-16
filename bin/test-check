@@ -76,7 +76,7 @@ stub betterleaks actionlint shellcheck python3 jq fish
 # bin/test-fish-history against a stub fish. Which sections ran is the point
 # here.
 run_check
-for header in betterleaks actionlint shellcheck test-hexdocs-hook check-skills test-link test-fish-history; do
+for header in betterleaks actionlint shellcheck test-hexdocs-hook test-worktrunk-hook check-skills test-link test-fish-history; do
   assert "a bare run runs $header" grep -q "^==> $header" "$out"
 done
 

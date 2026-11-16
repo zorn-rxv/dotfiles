@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# By project type, ready a worktree that `wt` just created.
+#
+# worktrunk runs this from the new worktree's root, so the paths below are
+# relative. It picks a profile from a marker file. A repo with no profile, such
+# as a Hugo site or an Obsidian vault, is left untouched.
+
+set -euo pipefail
+
+if [ ! -f mix.exs ]; then
+  printf 'pre-start: no profile for %s; nothing to do\n' "$PWD"
+  exit 0
+fi
+
+# Copy build state first, so nothing compiles cold. With --require-include, a
+# repo without a .worktreeinclude gets no copy. Without the flag, it would get
+# every gitignored file it has.
+wt step copy-ignored --require-include
+
+# Hash the port from repo and branch, not branch alone, so the same branch name
+# in two repos gets two ports. See docs/adr/0002 for why it goes to a file.
+port="$(wt step eval "{{ (repo ~ '-' ~ branch) | hash_port }}")"
+printf 'PORT=%s\n' "$port" >.env.worktree
+wt config state vars set "port=$port"
+
+# A repo whose .gitignore does not cover .env.worktree would show it as a new
+# file, and an agent could commit it. The exclude file is shared by every
+# worktree of the repo and is never committed.
+exclude="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+if ! grep -qxF /.env.worktree "$exclude" 2>/dev/null; then
+  mkdir -p "$(dirname "$exclude")"
+  printf '/.env.worktree\n' >>"$exclude"
+fi
+
+printf 'pre-start: Elixir profile ready in %s (port %s)\n' "$PWD" "$port"

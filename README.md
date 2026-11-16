@@ -26,7 +26,7 @@ A skill with malformed frontmatter fails silently. It never activates, and nothi
 
 ### Herdr config — `herdr/`
 
-My [Herdr](https://herdr.dev) `config.toml`: the theme, mouse capture, and onboarding turned off. Only that file is tracked. Herdr keeps its sockets, logs, and session snapshots in the same directory, and those are machine state.
+My [Herdr](https://herdr.dev) `config.toml`: the theme, mouse capture, a wider sidebar, and onboarding turned off. Only that file is tracked. Herdr keeps its sockets, logs, and session snapshots in the same directory, and those are machine state.
 
 ### espanso config — `espanso/`
 

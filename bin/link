@@ -80,6 +80,21 @@ link_path "$repo_root/espanso/match/base.yml" \
 link_path "$repo_root/fish/config.fish" \
   "$HOME/.config/fish/config.fish" 'fish/config.fish'
 
+# worktrunk's fish function and completions. They are generated to match the
+# installed wt, so tracking them would leave a stale copy after an upgrade.
+# Installing here instead means a new machine cannot forget the step. --yes
+# skips the prompt, which otherwise cancels the install without a terminal.
+if command -v wt >/dev/null; then
+  if wt_output="$(wt config shell install fish --yes 2>&1)"; then
+    case "$wt_output" in
+      *'already configured'*) printf '  ok       wt fish integration\n' ;;
+      *) printf '  installed wt fish integration\n' ;;
+    esac
+  else
+    printf '  WARN     wt fish integration failed to install:\n%s\n' "$wt_output"
+  fi
+fi
+
 # Zed's settings file, not ~/.config/zed itself: Zed keeps its rules database
 # there. Zed resolves the symlink before it saves. A change made in its UI
 # lands here and leaves the link in place.

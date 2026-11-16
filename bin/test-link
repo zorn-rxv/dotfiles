@@ -73,6 +73,11 @@ for entry in "${links[@]}"; do
 done
 assert 'a fresh HOME skips nothing' grep -q ' 0 skipped, 0 orphaned$' "$out"
 assert 'a fresh HOME warns about nothing' not_grep '^  WARN' "$out"
+# CI installs no wt, so this case runs only where wt is on PATH.
+if command -v wt >/dev/null; then
+  assert 'a fresh HOME gets the wt fish integration' \
+    test -f "$home/.config/fish/functions/wt.fish"
+fi
 # Without it the pre-commit secret scan never runs, and nothing says so.
 assert 'core.hooksPath points at githooks' \
   test "$(git -C "$repo_root" config core.hooksPath)" = githooks

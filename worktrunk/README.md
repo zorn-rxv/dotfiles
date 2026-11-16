@@ -1,6 +1,6 @@
 # Worktrees with worktrunk
 
-A runbook for running several copies of a Phoenix app side by side, one per git worktree, so parallel coding agents never share a port or a database. [worktrunk](https://worktrunk.dev) (`wt`) creates and removes each worktree, and its hooks ready it and tear it down. [Herdr](https://herdr.dev) is where you work in it. [ADR 0001](../docs/adr/0001-worktrunk-not-herdr-creates.md) and [ADR 0002](../docs/adr/0002-worktree-values-in-an-env-file.md) record why the pieces fit this way.
+A runbook for running several copies of a Phoenix app side by side, one per git worktree, so parallel coding agents never share a port or a database. [worktrunk](https://worktrunk.dev) (`wt`) creates and removes each worktree, and its hooks ready it and tear it down. [Herdr](https://herdr.dev) is where you work in it. [ADR 0001](../docs/adr/0001-worktrunk-not-herdr-creates.md) and [ADR 0002](../docs/adr/0002-verify-doctor-opts-in-locally.md) record why the pieces fit this way.
 
 ## Create and remove only through `wt`
 

@@ -1,13 +1,11 @@
 # Dispatch Cleans Up via Prune
 
-> **Ported** from [zorn/dotfiles ADR 0006](https://github.com/zorn/dotfiles/blob/main/docs/adr/0006-dispatch-cleans-up-via-prune.md). Issue and pull request links point at that repo.
-
-The `dispatch` skill removes a worktree only when two checks agree: a dry run of `wt step prune` lists it, so its work is in `main`, and a pull request merged from the worktree's own `HEAD`. Prune alone cannot tell a finished worktree from a freshly launched one, and GitHub alone cannot tell whether removing the branch loses work. Settled in [issue #95](https://github.com/zorn/dotfiles/issues/95) and its pull request, #102.
+`/dispatch` launches agents into verify-doctor worktrees, one per Asana task or QuestLog issue, and later removes the finished ones. It removes a worktree only when two checks agree. A dry run of `wt step prune` must list it, so its work is in `main`. A pull request must have merged from the worktree's own `HEAD`. Prune alone cannot tell a finished worktree from one whose agent just started, and GitHub alone cannot tell whether removing the branch loses work.
 
 ## Consequences & Tradeoffs
 
-Prune detects squash-merged work from git, and `wt remove` runs our teardown hooks, so the skill reuses both rather than rebuilding them. But `--min-age 0s`, which lets a worktree merged the same day qualify, also lists a worktree with no commits. Prune reports that worktree as `same commit as`, or as `ancestor of` once `main` moves on, which happens as soon as another agent's pull request merges. Removing it would kill the agent just starting there. A merged pull request is what tells the two apart. It must match the worktree's `HEAD` commit, not only its branch name, because a follow-up branch can reuse the name of a branch that already merged.
+`--min-age 0s` lets a worktree merged the same day qualify, but it also lists a worktree with no commits yet. Prune reports that one as `same commit as main`, or as `ancestor of` once another agent's PR merges. Removing it would kill an agent just starting there. The merged PR tells the two apart. It must match the worktree's `HEAD` commit, not only its branch name, because a follow-up branch can reuse a merged `zorn/<slug>` name.
 
-GitHub alone was rejected because it trusts a label over the code: a merged pull request can leave commits behind on its branch, and a removal would discard them. The prune check guards against that. Running prune live, without `--dry-run`, was rejected because it cannot leave out an individual candidate.
+GitHub alone was rejected because a merged PR can leave commits behind on its branch, and removal would discard them. A live `wt step prune` was rejected because it cannot leave out a single candidate. A PR closed without merging never qualifies, so its worktree stays until a person decides. A worktree whose agent is working, or blocked on a question, is skipped, because removal closes its Herdr workspace.
 
-A pull request closed without merging never qualifies, even when its changes reached `main` another way, so its worktree stays until a person decides. A failed lookup also leaves the worktree in place. worktrunk compares against the local `main` for `same commit as`, so cleanup pulls `main` first. A worktree whose agent is working, or blocked on a question, is skipped, because removal closes its Herdr workspace.
+This follows [zorn/dotfiles ADR 0006](https://github.com/zorn/dotfiles/blob/main/docs/adr/0006-dispatch-cleans-up-via-prune.md), which settled the same two-check rule for GitHub-issue branches.

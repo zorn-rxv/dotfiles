@@ -54,7 +54,7 @@ My [Zed](https://zed.dev) `settings.json`. Its `auto_install_extensions` list ma
 
 ### zsh environment — `zsh/zshenv`
 
-Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH and sets `DO_NOT_TRACK`, as `config.fish` does. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
+Fish is my interactive shell, but Claude Code runs its shell commands in zsh, and Zed builds its environment from zsh too. `zshenv` activates mise there, so those tools find the same Elixir, Erlang, and Node versions as fish does. It also puts libpq's `psql` on PATH and sets `DO_NOT_TRACK`, as `config.fish` does. For Claude Code's sake, it turns off zsh's `EQUALS` option, which makes a separator such as `echo ====` fail, and it sets the local Postgres dev login, so `psql` reaches a worktree's database without a prompt. zsh reads `zshenv` for every invocation, interactive or not, which is why the activation lives there rather than in `zprofile` or `zshrc`.
 
 ## Setup
 

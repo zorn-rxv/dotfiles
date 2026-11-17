@@ -1,7 +1,7 @@
 # Decision Name
 
 <!--
-Keep this title short — aim for 30 characters or fewer. It is used verbatim as the entry in the generated docs' navigation sidebar, which truncates longer titles with an ellipsis. Prefer a concise noun phrase (e.g. "Automerge Rust Library") over a full sentence.
+Keep this title short — aim for 30 characters or fewer. A short title scans in a file listing and reads well as link text, and ex_doc's sidebar truncates a longer one with an ellipsis. Prefer a concise noun phrase (e.g. "Postgres Job Queue") over a full sentence.
 -->
 
 One to three sentences: what the situation was, what we decided, and why. That is a complete decision — the value is in recording *that* a choice was made and *why*, not in filling out sections.

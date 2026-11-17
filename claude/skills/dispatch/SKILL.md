@@ -55,7 +55,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
-   [`scripts/preflight.sh`](scripts/preflight.sh) `<branch> <agent name> <GID or ID>` runs every check in this step, including the GitHub name check below, and prints a JSON verdict: `clear`, `skip`, `resume`, or `rename`, with its reason and the branch to launch. Run it once per row rather than composing the checks by hand. The rules here say what each verdict means.
+   [`scripts/preflight.sh`](scripts/preflight.sh) `<branch> <agent name> <GID or ID>` runs every check in this step, including the GitHub name check below, and prints a JSON verdict: `clear`, `skip`, `resume`, or `rename`, with its reason and the branch to launch. Run it once per row. The rules here say what each verdict means.
 
    For a row that is neither skipped nor resumed, check that the planned branch name is unused on GitHub too: `git ls-remote --heads origin <branch>` and `gh pr list --head <branch> --state all`. A work item whose earlier pull request closed or merged gets the same slug again. Reusing it would branch from `main` beside the old remote branch, and `/implement` would find the old pull request and stop. When the name is taken, pick a different slug, for example by adding a word from the work item's name.
 
@@ -76,16 +76,16 @@ Launch is done when `herdr agent list` shows one agent per launched work item, e
 
 ## Status
 
-Build the table once for each request, and do not poll. [`scripts/worktree-status.sh`](scripts/worktree-status.sh) prints every column below for each linked worktree as JSON. Render its output; do not gather the columns by hand. Give each linked worktree from `git worktree list` one row:
+Build the table once for each request, and do not poll. Run [`scripts/worktree-status.sh`](scripts/worktree-status.sh), which prints one JSON row per linked worktree, and render each row as a table row:
 
-| Column | Source |
+| Column | Field |
 | --- | --- |
-| Label | `herdr workspace list`, matched on `worktree.checkout_path` |
-| Branch | `git worktree list` |
-| Agent | `herdr agent list`, matched on `cwd`; the agent name identifies the work item; "none" when no agent matches |
-| Pull request | `gh pr list --head <branch> --state all --json number,state,headRefOid`: the open one, else one whose `headRefOid` equals the worktree's `HEAD`, else "none". A merged pull request at another commit belongs to an earlier branch with the same name. |
-| Checks | `gh pr checks <number>`, when a pull request exists |
-| Releasable | "yes" when the worktree passes Release's check, else the first reason it fails |
+| Label | `label` |
+| Branch | `branch` |
+| Agent | `agents`, named with their status; the agent name identifies the work item; "none" when empty |
+| Pull request | `pr`, or "none" |
+| Checks | `checks`, the counts by bucket, when a pull request exists |
+| Releasable | `releasable` |
 
 Status is done when every linked worktree has a row with all six columns filled, or marked "none".
 

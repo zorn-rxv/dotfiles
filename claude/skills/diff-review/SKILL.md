@@ -17,7 +17,7 @@ Multi-axis review of the diff between `HEAD` and a fixed point the user supplies
 - **Spec** — does the code faithfully implement the originating Asana task / PRD / spec?
 - **Prose** — are the comments and docs grammatical, and does every function doc and inline comment earn its length?
 - **Tests** — whenever the diff touches code: do the tests flake, do they observe the new behavior, and do they cost more than the behavior needs?
-- **Database** — only when the diff touches the DB: are migrations safe to deploy, are dependent writes transactional, and do queries scale?
+- **Database** — only when the diff touches the DB: are migrations safe to deploy and to roll back, are dependent writes transactional, and do queries scale?
 - **Multi-user** — only when the diff touches a write path: if two people act on the same resource at once, does the stored row decide, and does the losing tab recover?
 
 The first three always run. Tests runs whenever the diff touches code. Database runs only when the diff shows database signals, and Multi-user only when it shows a write path, since most changes touch neither. The axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
@@ -116,7 +116,7 @@ You are done with this step once you have decided the axis runs or is skipped.
 
 Scan the diff for **database signals** — migration files, `schema do`, `Repo.`/query calls, raw SQL. If none appear, the Database axis is skipped; note this in the final report and move on. If any appear, the Database sub-agent runs in step 8, and its baseline comes from `reference/database-baseline.md` — read that file and paste it into the sub-agent prompt, since the sub-agent has no other access to it.
 
-The baseline is not inline here, unlike the smell, prose, and tests baselines, because it loads only on the reviews that touch the DB. Its migration-safety concern defers to project tooling: the baseline file carries the deferral rule, so the sub-agent decides it — you only gate on whether the diff touches the DB at all.
+The baseline is not inline here, unlike the smell, prose, and tests baselines, because it loads only on the reviews that touch the DB. Its migration-safety concern defers to project tooling, and its reversibility concern always runs: the baseline file carries both rules, so the sub-agent decides them — you only gate on whether the diff touches the DB at all.
 
 You are done with this step once you have decided the axis runs or is skipped, and — if it runs — have the baseline text in hand to paste.
 
@@ -160,7 +160,7 @@ If the spec is missing, skip the Spec sub-agent and note this in the final repor
 
 - The full diff command and commit list.
 - The **database baseline from step 6** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report a flat list of findings, nothing else — no preamble, no summary. One finding per entry, each on its own line as `<file>:<line or -> | <claim in one line> | <migration|transaction|performance> | <the hunk it turns on, at most two lines>`. Apply each baseline concern where its signal appears in the diff. Every finding is a judgment call, and a documented repo standard overrides the baseline. When the baseline's migration-safety deferral applies, skip that concern and report the single line `- | migration safety enforced by tooling — skipped | migration | -`. Return nothing if you find nothing."
+- The brief: "Report a flat list of findings, nothing else — no preamble, no summary. One finding per entry, each on its own line as `<file>:<line or -> | <claim in one line> | <migration|transaction|performance> | <the hunk it turns on, at most two lines>`. Apply each baseline concern where its signal appears in the diff. Every finding is a judgment call, and a documented repo standard overrides the baseline. When the baseline's migration-safety deferral applies, skip that concern, still apply migration reversibility, and report the single line `- | migration safety enforced by tooling — skipped | migration | -`. Return nothing if you find nothing."
 
 **Multi-user sub-agent prompt** (only when step 7 found a write path) — include:
 

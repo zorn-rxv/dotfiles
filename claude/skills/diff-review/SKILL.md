@@ -65,6 +65,8 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 - **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
 - **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
 
+Standards also carries the **LiveView state baseline** when the diff shows LiveView signals: a `*_live.ex` file or a file under a `live/` directory, `use …, :live_view` or `use …, :live_component`, or a call to `assign(`, `assign_new(`, `assign_async(`, or `stream(`. If any appear, read `reference/liveview-state-baseline.md` and paste it into the Standards sub-agent prompt, since the sub-agent has no other access to it. It rides on Standards, not Database, because Standards always runs: an assign fed by a context function shows no `Repo.` signal, so the Database gate would miss it. The same two rules bind it as the smell baseline.
+
 ### 4. Identify the prose standard
 
 Anything the repo documents about how prose should read — a `STYLE.md`, a writing section in `CONTRIBUTING.md`. On top of that, the Prose axis always carries the **prose baseline** below, so it applies even when a repo documents nothing. The same two rules bind it as the smell baseline: a documented repo standard overrides, and every call is a judgment ("possible verbosity"), never a hard violation.
@@ -134,7 +136,8 @@ Send a single message with one `Agent` tool call per axis that runs — Standard
 
 - The full diff command and commit list.
 - The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The brief: "Report a flat list of findings, nothing else — no preamble, no summary. One finding per entry, each on its own line as `<file>:<line> | <claim in one line> | <hard|judgment> | <evidence, at most two lines>`. Cover (a) every place the diff violates a documented standard, citing the standard file and rule in the evidence; and (b) any baseline smell, named. A documented repo standard overrides the baseline, and baseline smells are always judgment calls where documented-standard breaches can be hard. Skip anything tooling enforces. Return nothing if you find nothing."
+- The **LiveView state baseline**, pasted in full, when step 3 found LiveView signals.
+- The brief: "Report a flat list of findings, nothing else — no preamble, no summary. One finding per entry, each on its own line as `<file>:<line> | <claim in one line> | <hard|judgment> | <evidence, at most two lines>`. Cover (a) every place the diff violates a documented standard, citing the standard file and rule in the evidence; (b) any baseline smell, named; and (c) when the LiveView state baseline is attached, each of its concerns, as a judgment call with the claim prefixed `LiveView state:` — read each changed assign's template even outside the diff. A documented repo standard overrides the baseline, and baseline smells are always judgment calls where documented-standard breaches can be hard. Skip anything tooling enforces. Return nothing if you find nothing."
 
 **Spec sub-agent prompt** — include:
 

@@ -18,7 +18,7 @@ If a choice is easy to reverse, skip it; you'll just reverse it. If it isn't sur
 
 A decision can be a single paragraph, and most should be. One to three sentences — the situation, the choice, the reason — is a complete record. `__template.md` offers **Problem Statement**, **Decision Made**, and **Consequences & Tradeoffs** as optional sections; use one only when it carries weight the summary cannot, and delete the rest. Filling out every heading turns a record into an essay that nobody rereads.
 
-Keep the title short too — 30 characters or fewer. A short title scans in a file listing and reads well as link text, and ex_doc's sidebar truncates a longer one with an ellipsis. Prefer a concise noun phrase ("Postgres Job Queue") over a full sentence.
+Keep the title short too — 30 characters or fewer. A short title gives a short slug that scans in a file listing. In a project that publishes with `ex_doc`, the sidebar also truncates a longer title with an ellipsis. Prefer a concise noun phrase ("Postgres Job Queue") over a full sentence.
 
 ## Amending an earlier decision
 
@@ -29,8 +29,7 @@ When a new decision narrows, extends, or overturns an older one, say so in the n
 ```md
 # Postgres Job Queue
 
-> **Scoped by [ADR 0007](0007-reports-skip-the-job-queue.md)** — report exports
-> run as one-off tasks instead of through the job queue.
+> **Scoped by [ADR 0007](0007-report-exports-skip-the-queue.md)** — report exports run as one-off tasks instead of through the job queue.
 ```
 
 The pointer is the one edit an existing decision may receive. It costs a line, keeps the original text honest about its own moment, and — most importantly — means a reader who lands on the old document learns immediately that it is not the end of the story, instead of having to reconstruct the chain from the newest document backwards.

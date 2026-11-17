@@ -50,7 +50,7 @@ Find the directory before creating one:
 
 ## Writing one
 
-**Keep the title to 30 characters or fewer.** A short title scans in a file listing and reads well as link text, and ex_doc's sidebar truncates a longer one with an ellipsis. A concise noun phrase ("Postgres Job Queue") beats a sentence.
+**Keep the title to 30 characters or fewer.** A short title gives a short slug that scans in a file listing. In a project that publishes with `ex_doc`, the sidebar also truncates a longer title with an ellipsis. A concise noun phrase ("Postgres Job Queue") beats a sentence.
 
 One to three sentences — the situation, the choice, the reason — is a complete decision, and most should be exactly that. The template offers **Problem Statement**, **Decision Made**, and **Consequences & Tradeoffs** as optional sections; reach for one only when it carries weight the summary cannot, and delete the headings that go unused. Filling out every heading turns a record into an essay nobody rereads.
 
@@ -63,8 +63,7 @@ When a new decision narrows, extends, or overturns an older one, say so in the n
 ```md
 # Postgres Job Queue
 
-> **Scoped by [ADR 0007](0007-reports-skip-the-job-queue.md)** — report exports
-> run as one-off tasks instead of through the job queue.
+> **Scoped by [ADR 0007](0007-report-exports-skip-the-queue.md)** — report exports run as one-off tasks instead of through the job queue.
 ```
 
 That pointer is the one edit an existing decision may receive. It costs a line and means a reader landing on the old document learns immediately that it isn't the end of the story, instead of reconstructing the chain backwards from the newest one.
@@ -79,7 +78,7 @@ When creating a decisions directory for the first time, seed it with `reference/
 
 If the directory already exists but has no `about.md`, don't add one uninvited — offer. A repo that has been keeping decisions without it has a convention of its own, and reading the existing documents tells you more than seeding a file would.
 
-Because the seeds restate these rules for a different audience, a change to the rules here has to move `reference/seed-about.md` with it. That duplication is deliberate: two audiences, two registers, and collapsing them makes one of the two read wrong.
+Because the seeds restate these rules for a different audience, a change to the rules here has to move `reference/seed-about.md` and `reference/seed-template.md` with it. That duplication is deliberate: two audiences, two registers, and collapsing them makes one of the two read wrong.
 
 ## Publishing (ex_doc projects)
 

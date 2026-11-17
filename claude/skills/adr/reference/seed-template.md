@@ -1,7 +1,7 @@
 # Decision Name
 
 <!--
-Keep this title short — aim for 30 characters or fewer. A short title scans in a file listing and reads well as link text, and ex_doc's sidebar truncates a longer one with an ellipsis. Prefer a concise noun phrase (e.g. "Postgres Job Queue") over a full sentence.
+Keep this title short — aim for 30 characters or fewer. A short title gives a short slug that scans in a file listing. In a project that publishes with `ex_doc`, the sidebar also truncates a longer title with an ellipsis. Prefer a concise noun phrase (e.g. "Postgres Job Queue") over a full sentence.
 -->
 
 One to three sentences: what the situation was, what we decided, and why. That is a complete decision — the value is in recording *that* a choice was made and *why*, not in filling out sections.

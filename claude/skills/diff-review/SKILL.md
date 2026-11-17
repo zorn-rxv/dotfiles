@@ -134,7 +134,7 @@ You are done with this step once you have decided the axis runs or is skipped, a
 
 ### 7. Decide whether the Multi-user axis runs
 
-Scan the diff for a **write path** — `Repo.insert`, `Repo.update`, `Repo.delete`, `Repo.update_all`, `Ecto.Multi`, a changeset applied to a stored record, raw SQL that writes, the equivalent write call on another stack, or any LiveView `handle_event` or controller action. A read-only diff skips the axis; note this in the final report. If a write path appears, the Multi-user sub-agent runs in step 8, and its baseline comes from `reference/multi-user-baseline.md` — read that file and paste it into the sub-agent prompt, since the sub-agent has no other access to it. The reasoning behind the axis is in [ADR 0007](https://github.com/zorn/dotfiles/blob/main/docs/adr/0007-multi-user-review-axis.md).
+Scan the diff for a **write path** — `Repo.insert`, `Repo.update`, `Repo.delete`, `Repo.update_all`, `Ecto.Multi`, a changeset applied to a stored record, raw SQL that writes, the equivalent write call on another stack, or any LiveView `handle_event` or controller action. A read-only diff skips the axis; note this in the final report. If a write path appears, the Multi-user sub-agent runs in step 8, and its baseline comes from `reference/multi-user-baseline.md` — read that file and paste it into the sub-agent prompt, since the sub-agent has no other access to it. The reasoning behind the axis is in [zorn/dotfiles ADR 0007](https://github.com/zorn/dotfiles/blob/main/docs/adr/0007-multi-user-review-axis.md).
 
 You are done with this step once you have decided the axis runs or is skipped, and — if it runs — have the baseline text in hand to paste.
 

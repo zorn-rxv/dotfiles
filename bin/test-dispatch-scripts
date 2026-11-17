@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#
+# Run the dispatch skill's scripts against a throwaway repo and check their
+# verdicts.
+#
+# A wrong "releasable: yes" lets Release delete a branch whose commits are not
+# on GitHub, and a wrong "clear" launches a second agent onto dispatched work.
+# Fake `gh`, `herdr`, and `pg_isready` commands stand in for the real tools,
+# reading canned JSON from files, so the cases run offline.
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+scripts="$repo_root/claude/skills/dispatch/scripts"
+
+# git reports worktree paths with symlinks resolved (/private/var on macOS),
+# so resolve the scratch path the same way for the fakes to match.
+scratch="$(cd "$(mktemp -d)" && pwd -P)"
+trap 'rm -rf "$scratch"' EXIT
+fake="$scratch/fake"
+mkdir -p "$scratch/bin" "$fake"
+
+# gh: `pr list --head <b>` reads fake/prs-<b with / as _>.json, `pr list
+# --author` reads fake/mine.json, and `pr checks <n>` reads fake/checks-<n>.json.
+cat >"$scratch/bin/gh" <<'FAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+fake="$FAKE_DIR"
+case "$1 $2" in
+  'pr list')
+    shift 2
+    head="" author=""
+    while [ $# -gt 0 ]; do
+      case "$1" in --head) head="$2"; shift ;; --author) author="$2"; shift ;; esac
+      shift
+    done
+    if [ -n "$author" ]; then cat "$fake/mine.json" 2>/dev/null || echo '[]'
+    else cat "$fake/prs-${head//\//_}.json" 2>/dev/null || echo '[]'; fi
+    ;;
+  'pr checks') cat "$fake/checks-$3.json" ;;
+  *) printf 'unexpected gh call: %s\n' "$*" >&2; exit 1 ;;
+esac
+FAKE
+cat >"$scratch/bin/herdr" <<'FAKE'
+#!/usr/bin/env bash
+case "$1 $2" in
+  'agent list') cat "$FAKE_DIR/agents.json" ;;
+  'workspace list') cat "$FAKE_DIR/workspaces.json" ;;
+  *) printf 'unexpected herdr call: %s\n' "$*" >&2; exit 1 ;;
+esac
+FAKE
+printf '#!/usr/bin/env bash\nexit 0\n' >"$scratch/bin/pg_isready"
+chmod +x "$scratch/bin/"*
+export PATH="$scratch/bin:$PATH" FAKE_DIR="$fake"
+
+# A primary checkout with an origin, and one linked worktree on feature-a.
+git init -q --bare "$scratch/origin.git"
+git -c init.defaultBranch=main init -q "$scratch/repo"
+primary="$scratch/repo"
+git -C "$primary" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+git -C "$primary" remote add origin "$scratch/origin.git"
+git -C "$primary" push -q origin main
+wt_path="$scratch/repo.feature-a"
+git -C "$primary" worktree add -q -b feature-a "$wt_path"
+head="$(git -C "$wt_path" rev-parse HEAD)"
+
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+echo "{\"result\":{\"workspaces\":[{\"label\":\"feature a\",\"worktree\":{\"checkout_path\":\"$wt_path\"}}]}}" >"$fake/workspaces.json"
+
+failed=0
+check() {
+  local name="$1" expected="$2" actual="$3"
+  if [ "$expected" = "$actual" ]; then printf '  pass  %s\n' "$name"
+  else printf '  FAIL  %s: expected %s, got %s\n' "$name" "$expected" "$actual"; failed=1; fi
+}
+status() { (cd "$primary" && "$scripts/worktree-status.sh") | jq -r "$1"; }
+preflight() { (cd "$primary" && "$scripts/preflight.sh" "$@") | jq -r '.verdict + " " + .branch'; }
+
+printf 'worktree-status.sh\n'
+check "no PR is not releasable" "no pull request at HEAD" "$(status '.[0].releasable')"
+check "the label comes from Herdr" "feature a" "$(status '.[0].label')"
+
+echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
+echo '[{"bucket":"pass"},{"bucket":"fail"}]' >"$fake/checks-7.json"
+check "a PR at HEAD with a clean tree is releasable" "yes" "$(status '.[0].releasable')"
+check "checks are counted by bucket" "1 1" "$(status '.[0].checks | "\(.pass) \(.fail)"')"
+
+echo '[{"number":7,"state":"OPEN","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
+check "a PR behind HEAD is not releasable" "no pull request at HEAD" "$(status '.[0].releasable')"
+echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
+
+touch "$wt_path/scratch.txt"
+check "a dirty tree is not releasable" "uncommitted changes" "$(status '.[0].releasable')"
+rm "$wt_path/scratch.txt"
+
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-1\",\"agent_status\":\"blocked\",\"cwd\":\"$wt_path/lib\"}]}}" >"$fake/agents.json"
+check "a blocked agent inside the worktree stops release" "agent is working or blocked" "$(status '.[0].releasable')"
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-2\",\"agent_status\":\"working\",\"cwd\":\"${wt_path}b\"}]}}" >"$fake/agents.json"
+check "an agent in a sibling path does not count" "yes" "$(status '.[0].releasable')"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+
+echo '[{"number":3,"state":"MERGED","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
+check "a merged PR at another commit is not shown" "null" "$(status '.[0].pr')"
+
+printf 'preflight.sh\n'
+check "a new branch is clear" "clear feature-b" "$(preflight feature-b ql-9 QL-9)"
+check "an existing local branch is skipped" "skip feature-a" "$(preflight feature-a ql-9 QL-9)"
+
+echo '{"result":{"agents":[{"name":"ql-9","agent_status":"idle","cwd":"/elsewhere"}]}}' >"$fake/agents.json"
+check "a live agent with the name is skipped" "skip feature-b" "$(preflight feature-b ql-9 QL-9)"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+
+echo '[{"number":5,"headRefName":"feature-a"}]' >"$fake/mine.json"
+check "my open PR with a worktree is skipped" "skip feature-b" "$(preflight feature-b ql-9 QL-9)"
+echo '[{"number":5,"headRefName":"released-x"}]' >"$fake/mine.json"
+check "my open PR without a worktree resumes on its branch" "resume released-x" "$(preflight feature-b ql-9 QL-9)"
+echo '[]' >"$fake/mine.json"
+
+git -C "$primary" push -q origin main:refs/heads/feature-c
+check "a branch name taken on GitHub needs a rename" "rename feature-c" "$(preflight feature-c ql-9 QL-9)"
+echo '[{"number":2}]' >"$fake/prs-feature-d.json"
+check "a branch name with an old PR needs a rename" "rename feature-d" "$(preflight feature-d ql-9 QL-9)"
+
+exit "$failed"

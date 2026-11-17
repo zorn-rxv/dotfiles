@@ -45,20 +45,11 @@ QuestLog holds my local issues. Work I have not put in Asana yet lives as Markdo
 
 `~/QuestLog/README.md` defines the issue format: the frontmatter fields, the tag list, and how to close an issue. Follow it whenever you write an issue. Use tags from the existing list. Set `updated` to today whenever you change an issue meaningfully. When I ask to close or cancel an issue, close it with a short Resolution that says what happened. QuestLog has no canceled status, so a dropped issue is closed too, and its Resolution says why. Do not delete the file. Only "open" means the work is still to do. A closed issue is history, not open work. When you open a PR for an issue, add its number to the issue's `prs` list. When you close an issue that a PR fixed, make sure `prs` lists that PR.
 
-Do the routine edits with `~/QuestLog/ql.exs`, not by hand. Run it as `elixir ~/QuestLog/ql.exs <command>`, from any directory, so you never need to `cd` into QuestLog. An issue file stores its ID as a bare number (`id: 148`), so a grep for `QL-148` finds nothing.
-
-- `path QL-148` prints the issue's file.
-- `new <repo> <slug> "<title>" [--parent N] [--tags a,b] [--blocked-by N,M]` files an issue. It takes the next free ID under a lock, so parallel agents never share one, and writes the frontmatter and title. Write the body afterward.
-- `pr QL-148 494` adds a PR to `prs`.
-- `close QL-148 "<resolution>" [--pr 494]` closes an issue.
-- `open QL-148` opens the viewer in the browser on that issue.
-- `sync "<message>"` commits every change and pushes.
-
-Each command that changes an issue rebuilds `index.html`. After a body edit by hand, run `elixir ~/QuestLog/build.exs`. `~/QuestLog` is backed up to the private GitHub repo `zorn-rxv/quest_log`. After a meaningful batch of issue changes, run `sync` with a Conventional Commits message, without asking first.
+Make the routine edits with `elixir ~/QuestLog/ql.exs`, from any directory: `path`, `new`, `pr`, `close`, `open`, and `sync`. Run it with no arguments for the usage. `new` takes the next free ID under a lock, so parallel agents get distinct IDs. An issue file stores its ID as a bare number (`id: 148`), so search for that form, or use `path QL-148`. `~/QuestLog` is backed up to the private GitHub repo `zorn-rxv/quest_log`. After a meaningful batch of issue changes, run `sync` with a Conventional Commits message, without asking first.
 
 ## Memory
 
-Do not save a pull request's state as a memory: opened, ready, approved, merged. GitHub holds it, and a QuestLog issue's `prs` list ties the PR to its work. Save a memory about a PR only for what neither place records, such as a follow-up someone promised in a thread. When a PR merges or closes, delete its memory unless that follow-up is still open.
+Keep a pull request's state in GitHub, and tie the PR to its work through the QuestLog issue's `prs` list. Save a memory about a PR only for what neither place records, such as a follow-up someone promised in a thread. When a PR merges or closes, delete its memory unless that follow-up is still open.
 
 ## Worktrees
 

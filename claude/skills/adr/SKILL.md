@@ -45,7 +45,7 @@ Something that fails the test but still deserves writing down is usually a codin
 Find the directory before creating one:
 
 1. An existing `docs/adr/` or `docs/decisions/` — use it, and **match the numbering already there** rather than imposing a new scheme. A repo whose decisions run `1-timestamps.md`, `2-…` keeps single digits; renumbering to four would break every link pointing at them, and the decisions are immutable anyway.
-2. Otherwise create `docs/adr/`, numbered with a four-digit sequential prefix and a short kebab-case slug: `0001-postgres-job-queue.md`. Take the next number after the highest existing one.
+2. Otherwise create `docs/adr/`, numbered with a four-digit sequential prefix and a short kebab-case slug of the title: `0001-postgres-job-queue.md`. Take the next number after the highest existing one.
 3. If a repo has both directories, or something else again, ask rather than picking one and splitting the history in two.
 
 ## Writing one
@@ -74,7 +74,7 @@ Non-semantic fixes — broken links, renamed paths, typos — are always fine. T
 
 The `reference/` files are **payloads, not instructions**: copy them out, don't read them as guidance for yourself. Everything above is what governs your own behavior.
 
-When creating a decisions directory for the first time, seed it with `reference/seed-about.md` as `about.md` and `reference/seed-template.md` as `__template.md`. Those two state the same conventions for a human reader — the one browsing the generated docs, or working in the repo without this skill.
+When creating a decisions directory for the first time, seed it with `reference/seed-about.md` as `about.md` and `reference/seed-template.md` as `__template.md`. Those two state the same conventions for a human reader — the one reading them in the repo or on a published docs site, without this skill.
 
 If the directory already exists but has no `about.md`, don't add one uninvited — offer. A repo that has been keeping decisions without it has a convention of its own, and reading the existing documents tells you more than seeding a file would.
 

@@ -38,7 +38,7 @@ Non-semantic fixes (broken links, renamed paths, typos) are always allowed; they
 
 ## Naming
 
-Decision files are named with a four-digit sequential prefix that increments by one in creation order, followed by a short kebab-case slug (e.g. `0001-postgres-job-queue.md`). To add a decision, take the next number after the highest existing one.
+Decision files are named with a four-digit sequential prefix that increments by one in creation order, followed by a short kebab-case slug of the title (e.g. `0001-postgres-job-queue.md`). To add a decision, take the next number after the highest existing one.
 
 For more on the practice of writing decisions (also known as architecture decision records in other circles) see [this GitHub repo][adr].
 

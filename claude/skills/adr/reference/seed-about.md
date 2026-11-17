@@ -18,7 +18,7 @@ If a choice is easy to reverse, skip it; you'll just reverse it. If it isn't sur
 
 A decision can be a single paragraph, and most should be. One to three sentences — the situation, the choice, the reason — is a complete record. `__template.md` offers **Problem Statement**, **Decision Made**, and **Consequences & Tradeoffs** as optional sections; use one only when it carries weight the summary cannot, and delete the rest. Filling out every heading turns a record into an essay that nobody rereads.
 
-Keep the title short too — 30 characters or fewer. It is used verbatim in the generated docs' navigation sidebar, which truncates longer titles with an ellipsis. Prefer a concise noun phrase ("Automerge Rust Library") over a full sentence.
+Keep the title short too — 30 characters or fewer. A short title gives a short slug that scans in a file listing. In a project that publishes with `ex_doc`, the sidebar also truncates a longer title with an ellipsis. Prefer a concise noun phrase ("Postgres Job Queue") over a full sentence.
 
 ## Amending an earlier decision
 
@@ -27,10 +27,9 @@ Decision documents are **immutable**. Never rewrite one to match how the code wo
 When a new decision narrows, extends, or overturns an older one, say so in the new document **and add a pointer to the top of the old one**, directly under its title:
 
 ```md
-# In-Window Secondary Views
+# Postgres Job Queue
 
-> **Scoped by [ADR 0022](0022-report-refreshes-on-demand.md)** — the Report is a
-> read-only view and refreshes on demand rather than on every `{:book_updated}`.
+> **Scoped by [ADR 0007](0007-report-exports-skip-the-queue.md)** — report exports run as one-off tasks instead of through the job queue.
 ```
 
 The pointer is the one edit an existing decision may receive. It costs a line, keeps the original text honest about its own moment, and — most importantly — means a reader who lands on the old document learns immediately that it is not the end of the story, instead of having to reconstruct the chain from the newest document backwards.
@@ -39,7 +38,7 @@ Non-semantic fixes (broken links, renamed paths, typos) are always allowed; they
 
 ## Naming
 
-Decision files are named with a four-digit sequential prefix that increments by one in creation order, followed by a short kebab-case slug (e.g. `0001-which-automerge-rust-library.md`). To add a decision, take the next number after the highest existing one.
+Decision files are named with a four-digit sequential prefix that increments by one in creation order, followed by a short kebab-case slug of the title (e.g. `0001-postgres-job-queue.md`). To add a decision, take the next number after the highest existing one.
 
 For more on the practice of writing decisions (also known as architecture decision records in other circles) see [this GitHub repo][adr].
 

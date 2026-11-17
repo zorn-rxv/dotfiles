@@ -55,6 +55,8 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
+   [`scripts/preflight.sh`](scripts/preflight.sh) `<branch> <agent name> <GID or ID>` runs every check in this step, including the GitHub name check below, and prints a JSON verdict: `clear`, `skip`, `resume`, or `rename`, with its reason and the branch to launch. Run it once per row rather than composing the checks by hand. The rules here say what each verdict means.
+
    For a row that is neither skipped nor resumed, check that the planned branch name is unused on GitHub too: `git ls-remote --heads origin <branch>` and `gh pr list --head <branch> --state all`. A work item whose earlier pull request closed or merged gets the same slug again. Reusing it would branch from `main` beside the old remote branch, and `/implement` would find the old pull request and stop. When the name is taken, pick a different slug, for example by adding a word from the work item's name.
 
    The user may edit any branch name in the table, except on a "resume" row, whose branch must match its pull request. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
@@ -74,7 +76,7 @@ Launch is done when `herdr agent list` shows one agent per launched work item, e
 
 ## Status
 
-Build the table once for each request, and do not poll. Give each linked worktree from `git worktree list` one row:
+Build the table once for each request, and do not poll. [`scripts/worktree-status.sh`](scripts/worktree-status.sh) prints every column below for each linked worktree as JSON. Render its output; do not gather the columns by hand. Give each linked worktree from `git worktree list` one row:
 
 | Column | Source |
 | --- | --- |
@@ -99,9 +101,9 @@ Release removes a worktree whose work is safe on GitHub, so the user can move on
    - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
    - **Its agent is idle:** `herdr agent list` shows no agent with its `cwd` in the worktree that is `working` or `blocked`. Removal kills the agent, along with any question it is waiting on.
 
-   Leave any worktree that fails a check, and report the reason. Never push, commit, or stash to make one pass, and never pass `-f`. Those choices are the user's.
+   `scripts/worktree-status.sh <branch>` applies all three, and its `releasable` field is `yes` or the first reason that fails. Leave any worktree that fails a check, and report the reason. Never push, commit, or stash to make one pass, and never pass `-f`. Those choices are the user's.
 
-3. **Wait for "go", then remove.** Show the list, and say that releasing drops each worktree's dev and test databases. Wait for "go", because `-D` deletes local branches that are not merged. Then, for each one in turn, run step 2's three checks again. An idle agent can wake during the wait, for example on review feedback, and commit without pushing. A clean tree does not stop `wt remove`, so `-D` would delete that commit. Skip any worktree that now fails, and report why. Otherwise run `wt remove --foreground -D <branch>`. When `wt remove` refuses, follow its message. If a Herdr workspace stays open after a removal, close it with `herdr workspace close <id>`.
+3. **Wait for "go", then remove.** Show the list, and say that releasing drops each worktree's dev and test databases. Wait for "go", because `-D` deletes local branches that are not merged. Then, for each one in turn, run step 2's three checks again with `scripts/worktree-status.sh <branch>`. An idle agent can wake during the wait, for example on review feedback, and commit without pushing. A clean tree does not stop `wt remove`, so `-D` would delete that commit. Skip any worktree that now fails, and report why. Otherwise run `wt remove --foreground -D <branch>`. When `wt remove` refuses, follow its message. If a Herdr workspace stays open after a removal, close it with `herdr workspace close <id>`.
 
 Release is done when every named worktree is removed or reported with its reason for staying. For each released worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it.
 

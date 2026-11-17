@@ -65,13 +65,17 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 - **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
 - **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
 
-Standards also carries the **LiveView state baseline** when the diff shows any of these LiveView signals:
+Standards also carries the **LiveView state baseline** when the diff changes a LiveView or LiveComponent module. A file counts when any of these hold:
 
-- a `*_live.ex` file, or a file under a `live/` directory
-- `use …, :live_view` or `use …, :live_component`
-- a call to `assign(`, `assign_new(`, `assign_async(`, or `stream(`
+- it is named `*_live.ex`, or sits under a `live/` directory
+- it has `use …, :live_view` or `use …, :live_component`
+- it has `use Phoenix.LiveView` or `use Phoenix.LiveComponent`
 
-If any appear, read `reference/liveview-state-baseline.md` and paste it into the Standards sub-agent prompt, since the sub-agent has no other access to it. It rides on Standards because Standards always runs. An assign fed by a context function shows no `Repo.` signal, so the Database gate would miss it. The same two rules bind it as the smell baseline.
+Gate on the file, not on calls such as `assign(` or `stream(`. Those also match `Plug.Conn.assign` in controllers, `Repo.stream`, and `Task.async_stream`.
+
+If such a file appears, read `reference/liveview-state-baseline.md` and paste it into the Standards sub-agent prompt, since the sub-agent has no other access to it. It does not ride on the Database axis, because an assign fed by a context function shows no `Repo.` signal, so the Database gate would miss it. The same two rules bind it as the smell baseline.
+
+You are done with this step once you have the standards sources and have decided whether the LiveView state baseline is attached — and, if it is, have its text in hand to paste.
 
 ### 4. Identify the prose standard
 
@@ -142,7 +146,7 @@ Send a single message with one `Agent` tool call per axis that runs — Standard
 
 - The full diff command and commit list.
 - The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
-- The **LiveView state baseline**, pasted in full, when step 3 found LiveView signals.
+- The **LiveView state baseline**, pasted in full, when step 3 attached it.
 - The brief: "Report a flat list of findings, nothing else — no preamble, no summary. One finding per entry, each on its own line as `<file>:<line> | <claim in one line> | <hard|judgment> | <evidence, at most two lines>`. Cover (a) every place the diff violates a documented standard, citing the standard file and rule in the evidence; and (b) any baseline smell, named. When the LiveView state baseline is attached, also apply each of its concerns as a judgment call, with the claim prefixed `LiveView state:`. A documented repo standard overrides the baseline, and baseline smells are always judgment calls where documented-standard breaches can be hard. Skip anything tooling enforces. Return nothing if you find nothing."
 
 **Spec sub-agent prompt** — include:
@@ -203,7 +207,7 @@ The contract covers the numbering, the recommendation, and silence-as-agreement.
 - **List the findings you would ⚪ Keep.** Dropping one you disagree with silently hides that the axis looked at all; Keep with a reason is the honest form.
 - **Then act on exactly what came back.** A reply of "2 keep, 5 let's talk" means fixing the rest without re-asking.
 
-End with one line per axis: how many findings, and how many are recommended 🔴 Fix. An axis that did not run gets a line here too, in place of the count — `Spec — skipped, no spec`, `Tests — skipped, no code changes`, `Database — skipped, no database changes`, or `Multi-user — skipped, no write paths` — so a skip is visible without an empty heading above the fold. The Standards line also says when the LiveView state baseline was not attached, as `Standards — N findings, M 🔴 Fix; LiveView state not attached, no LiveView signals`. No cross-axis winner — that is the reranking the separation exists to prevent. Close the footer with `Correctness — only races between users are checked here; run /code-review`, so the reader is told where the rest of that check lives rather than left to assume it ran.
+End with one line per axis: how many findings, and how many are recommended 🔴 Fix. An axis that did not run gets a line here too, in place of the count — `Spec — skipped, no spec`, `Tests — skipped, no code changes`, `Database — skipped, no database changes`, or `Multi-user — skipped, no write paths` — so a skip is visible without an empty heading above the fold. The Standards line also says when the LiveView state baseline was not attached, as `Standards — N findings, M 🔴 Fix; LiveView state not attached, no LiveView modules`. No cross-axis winner — that is the reranking the separation exists to prevent. Close the footer with `Correctness — only races between users are checked here; run /code-review`, so the reader is told where the rest of that check lives rather than left to assume it ran.
 
 ## Why separate the axes
 

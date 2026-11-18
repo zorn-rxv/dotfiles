@@ -1,7 +1,7 @@
 ---
 name: dispatch
-description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task or QuestLog issue, report on them, release ones whose work is on GitHub, and clean up merged ones.
-argument-hint: "Asana task URLs or QuestLog IDs to launch, or \"status\", \"release <IDs or all>\", or \"clean\""
+description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task, QuestLog issue, or pull request, report on them, release ones whose work is on GitHub, and clean up merged ones.
+argument-hint: "Asana task URLs, QuestLog IDs, or PR numbers or URLs to launch, or \"status\", \"release <IDs or all>\", or \"clean\""
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -14,9 +14,9 @@ metadata:
 
 You are the dispatcher. You send agents out to their own worktrees, know where each one is, and bring the finished ones back. Your job is coordination; each work item belongs to its agent.
 
-A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. Pick the mode from the argument:
+A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. A **PR row** is a pull request, named by its number or URL. A work item gets an agent that runs `/implement`. A PR row gets an agent that waits for instructions, for reviewing a teammate's pull request with the app running, or for a second round on your own. Pick the mode from the argument:
 
-- **Launch:** one or more work items, in any mix.
+- **Launch:** one or more work items or pull requests, in any mix.
 - **Status:** `status`, or no argument.
 - **Release:** `release`, followed by work items, branches, or `all`.
 - **Clean:** `clean`, or `clean up`.
@@ -38,7 +38,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    `wt hook show` cannot settle this, because it lists global and per-project user hooks together. Without either case, every agent shares the primary checkout's port and databases, so stop and say so.
 
-2. **Check each work item belongs to this repo.** An Asana task must be in the project that the global Asana table lists for this repo; read its `memberships` with `get_task`. A QuestLog issue must have a file in `~/QuestLog/<repo>/` whose frontmatter `id` matches. If one belongs elsewhere, stop, name it, and launch none of the batch.
+2. **Check each work item belongs to this repo.** An Asana task must be in the project that the global Asana table lists for this repo; read its `memberships` with `get_task`. A QuestLog issue must have a file in `~/QuestLog/<repo>/` whose frontmatter `id` matches. If one belongs elsewhere, stop, name it, and launch none of the batch. A PR row's repo is checked in step 4.
 
 3. **Check the primary checkout and Postgres.** The checkout must be on `main` with a clean tree; if not, stop and say what is wrong. Run `git pull --ff-only`, so every worktree starts from the latest `main`. Then run `pg_isready -h localhost`, and stop if Postgres is not accepting connections. Keep the `-h`. Without it, `pg_isready` tries the Unix socket in `/tmp`. This machine's Postgres listens only on TCP, so the socket check reports "no response" while Postgres is up. Each worktree creates its databases in a background step, which fails without telling anyone when Postgres is down.
 
@@ -59,9 +59,17 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    For a row that is neither skipped nor resumed, check that the planned branch name is unused on GitHub too: `git ls-remote --heads origin <branch>` and `gh pr list --head <branch> --state all`. A work item whose earlier pull request closed or merged gets the same slug again. Reusing it would branch from `main` beside the old remote branch, and `/implement` would find the old pull request and stop. When the name is taken, pick a different slug, for example by adding a word from the work item's name.
 
-   The user may edit any branch name in the table, except on a "resume" row, whose branch must match its pull request. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
+   For a PR row, run `scripts/preflight.sh --pr <number or URL>` instead. Its row uses the pull request's branch and the agent name `pr-<number>`. Its verdict is one of three:
 
-5. **Create each worktree.** Run `wt herdr <branch>`. For a "resume" row, run `wt herdr-resume <branch>` instead. `wt herdr` passes `--create`, which ignores the remote branch and starts a new one from `main` without the pull request's commits. Either command's last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
+   - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. `gh pr view` opens a URL from any repo, and `wt herdr-resume` builds from `origin/<branch>`, which a fork's branch is not. Treat it like a work item from elsewhere: stop, name it, and launch none of the batch.
+   - **`skip`:** its branch or worktree already exists here, or its agent is live.
+   - **`pr`:** launch it. Say on the row whether `mine` is true, because the agent's prompt depends on it.
+
+   A PR row never resumes through `/implement`. To get `/implement`'s review feedback loop on your own pull request, name its work item instead.
+
+   The user may edit any branch name in the table, except on a "resume" row or a PR row, whose branch must match its pull request. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
+
+5. **Create each worktree.** Run `wt herdr <branch>`. For a "resume" row or a PR row, run `wt herdr-resume <branch>` instead. `wt herdr` passes `--create`, which ignores the remote branch and starts a new one from `main` without the pull request's commits. Either command's last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
 
 6. **Start each agent** under its agent name:
 
@@ -71,6 +79,14 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
    ```
 
    For a task, the prompt is `/implement <task URL>`. The prompt returns once the agent starts its turn. Each agent pauses when `/implement` needs a decision, so `blocked` is expected. A resumed agent finds its open pull request, and `/implement` sends it straight to the review feedback.
+
+   A PR row's prompt names no skill. The user decides what runs, and `/code-review` in particular needs an effort level that only the user picks:
+
+   ```sh
+   herdr agent prompt pr-123 "This worktree holds PR #123 (<title>) by <author>, on branch <branch>. Wait for instructions." --wait --until working --until blocked
+   ```
+
+   When `mine` is false, add "Do not commit or push." to the prompt. The branch belongs to a teammate.
 
 Launch is done when `herdr agent list` shows one agent per launched work item, each with its `cwd` in its own worktree. Report the Status table.
 
@@ -93,11 +109,11 @@ Status is done when every linked worktree has a row with all six columns filled,
 
 Release removes a worktree whose work is safe on GitHub, so the user can move on while its pull request waits. The pull request and the remote branch stay. Launch resumes it later. [ADR 0004](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0004-release-needs-a-pushed-head.md) records why Release, unlike Clean, removes unmerged work.
 
-1. **Find the worktrees.** The argument names work items, branches, or `all`. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list` with a `HEAD` equal to its `headRefOid`. When none does, report the work item as not releasable. `all` means every linked worktree that passes the check in step 2. Never release the primary checkout.
+1. **Find the worktrees.** The argument names work items, branches, pull requests, or `all`. A pull request's number or URL names its `headRefName`, from `gh pr view <number or URL> --json headRefName`. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list`. When none does, report the work item as not releasable. `all` means every linked worktree that passes the check in step 2. Never release the primary checkout.
 
 2. **Check each one.** A worktree is releasable only when all of these hold:
 
-   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` equal to `git -C <path> rev-parse HEAD`. That proves GitHub has every commit.
+   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` that equals the worktree's `HEAD` or descends from it, after a `git fetch`. That proves GitHub has every commit. [ADR 0005](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0005-release-allows-a-stale-head.md) records why a pull request that has moved on still counts.
    - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
    - **Its agent is idle:** `herdr agent list` shows no agent with its `cwd` in the worktree that is `working` or `blocked`. Removal kills the agent, along with any question it is waiting on.
 

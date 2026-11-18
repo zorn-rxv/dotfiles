@@ -7,17 +7,19 @@
 #   worktree-status.sh            # every linked worktree
 #   worktree-status.sh <branch>   # only that branch's worktree
 #
-# Run it from the primary checkout. It reads git, gh, and herdr, and changes
-# nothing. Each row:
+# Run it from the primary checkout. It runs `git fetch --prune`, so it can see
+# a PR head pushed since the worktree was made, and changes nothing else. Each
+# row:
 #
 #   label       the Herdr workspace label, or null
 #   branch      the worktree's branch
 #   path        the worktree's path
 #   head        the worktree's HEAD commit
 #   agents      [{name, status}] for every Herdr agent whose cwd is inside it
-#   pr          {number, state, at_head} or null. The open PR, else one whose
-#               head equals HEAD. A merged PR at another commit belongs to an
-#               earlier branch with the same name, so it is not shown.
+#   pr          {number, state, holds_head} or null. The open PR, else one
+#               that holds HEAD: its head is HEAD or a descendant of it. A
+#               merged PR that does not hold HEAD belongs to an earlier branch
+#               with the same name, so it is not shown.
 #   checks      {pass, fail, pending, skipping, cancel} counts, or null
 #   dirty       the number of `git status --porcelain` lines
 #   releasable  "yes", or the first reason Release would refuse it
@@ -25,6 +27,8 @@
 set -euo pipefail
 
 only="${1:-}"
+
+git fetch --prune -q
 
 agents_json="$(herdr agent list)"
 workspaces_json="$(herdr workspace list)"
@@ -53,10 +57,22 @@ while IFS=$'\t' read -r path branch; do
       | select(.cwd == $p or (.cwd | startswith($p + "/")))
       | {name, status: .agent_status}]' <<<"$agents_json")"
 
+  # A PR holds HEAD when HEAD is its head or an ancestor of it, so GitHub has
+  # every commit the worktree has. Ancestry, not equality, because a teammate
+  # can push to a PR under review and leave the worktree behind. A head commit
+  # missing here fails merge-base, which reads as not holding.
   prs="$(gh pr list --head "$branch" --state all --json number,state,headRefOid)"
-  pr="$(jq --arg h "$head" '
-      ((map(select(.state == "OPEN")) + map(select(.headRefOid == $h)))[0])
-      | if . == null then null else {number, state, at_head: (.headRefOid == $h)} end' <<<"$prs")"
+  held="[]"
+  while read -r oid; do
+    [ -n "$oid" ] || continue
+    if git merge-base --is-ancestor "$head" "$oid" 2>/dev/null; then
+      held="$(jq --arg o "$oid" '. + [$o]' <<<"$held")"
+    fi
+  done <<<"$(jq -r '.[].headRefOid' <<<"$prs")"
+  pr="$(jq --argjson held "$held" '
+      map(. + {holds_head: (.headRefOid as $o | $held | index($o) != null)})
+      | ((map(select(.state == "OPEN")) + map(select(.holds_head)))[0])
+      | if . == null then null else {number, state, holds_head} end' <<<"$prs")"
 
   checks=null
   number="$(jq -r '.number // empty' <<<"$pr")"
@@ -68,7 +84,7 @@ while IFS=$'\t' read -r path branch; do
 
   # Release's three checks, in the order the skill lists them.
   releasable="$(jq -n --argjson pr "$pr" --argjson agents "$agents" --arg dirty "$dirty" '
-      if $pr == null or ($pr.at_head | not) then "no pull request at HEAD"
+      if $pr == null or ($pr.holds_head | not) then "no pull request holds HEAD"
       elif $dirty != "0" then "uncommitted changes"
       elif any($agents[]; .status == "working" or .status == "blocked") then "agent is working or blocked"
       else "yes" end')"

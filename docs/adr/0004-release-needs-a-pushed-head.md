@@ -1,5 +1,7 @@
 # Release Needs a Pushed HEAD
 
+> **Amended by [ADR 0005](0005-release-allows-a-stale-head.md)** — the pull request's head may also descend from the worktree's `HEAD`, so a worktree left behind by a teammate's push can still be released.
+
 `/dispatch release` removes a worktree whose work is not merged, so a worktree waiting on review, or abandoned, does not sit on the machine. It removes one only when a pull request for its branch, in any state, has the worktree's `HEAD` as its head commit, the worktree has no uncommitted changes, and no agent in it is working or blocked. The commit match proves GitHub holds every commit, so deleting the local branch with `-D` loses nothing.
 
 ## Consequences & Tradeoffs

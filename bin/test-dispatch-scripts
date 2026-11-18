@@ -22,6 +22,8 @@ mkdir -p "$scratch/bin" "$fake"
 
 # gh: `pr list --head <b>` reads fake/prs-<b with / as _>.json, `pr list
 # --author` reads fake/mine.json, and `pr checks <n>` reads fake/checks-<n>.json.
+# `pr view` reads fake/pr-view.json, `repo view` reads fake/repo.json, and
+# `api user` reads fake/me.json, whatever their arguments.
 cat >"$scratch/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -38,6 +40,9 @@ case "$1 $2" in
     else cat "$fake/prs-${head//\//_}.json" 2>/dev/null || echo '[]'; fi
     ;;
   'pr checks') cat "$fake/checks-$3.json" ;;
+  'pr view') cat "$fake/pr-view.json" ;;
+  'repo view') cat "$fake/repo.json" ;;
+  'api user') cat "$fake/me.json" ;;
   *) printf 'unexpected gh call: %s\n' "$*" >&2; exit 1 ;;
 esac
 FAKE
@@ -75,9 +80,10 @@ check() {
 }
 status() { (cd "$primary" && "$scripts/worktree-status.sh") | jq -r "$1"; }
 preflight() { (cd "$primary" && "$scripts/preflight.sh" "$@") | jq -r '.verdict + " " + .branch'; }
+preflight_pr() { (cd "$primary" && "$scripts/preflight.sh" --pr "$1") | jq -r "$2"; }
 
 printf 'worktree-status.sh\n'
-check "no PR is not releasable" "no pull request at HEAD" "$(status '.[0].releasable')"
+check "no PR is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
 check "the label comes from Herdr" "feature a" "$(status '.[0].label')"
 
 echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
@@ -86,8 +92,23 @@ check "a PR at HEAD with a clean tree is releasable" "yes" "$(status '.[0].relea
 check "checks are counted by bucket" "1 1" "$(status '.[0].checks | "\(.pass) \(.fail)"')"
 
 echo '[{"number":7,"state":"OPEN","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
-check "a PR behind HEAD is not releasable" "no pull request at HEAD" "$(status '.[0].releasable')"
+check "a PR head missing here is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
+
+# A teammate pushes after the review started: the PR's head moves past the
+# worktree's HEAD. GitHub still holds every commit the worktree has, so
+# Release may remove it. Status must fetch to see the new commit.
+git clone -q "$scratch/origin.git" "$scratch/teammate"
+git -C "$scratch/teammate" -c user.name=t -c user.email=t@t commit -q --allow-empty -m pushed
+pushed="$(git -C "$scratch/teammate" rev-parse HEAD)"
+git -C "$scratch/teammate" push -q origin HEAD:refs/heads/feature-a
+echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$pushed\"}]" >"$fake/prs-feature-a.json"
+check "a PR whose head is ahead of HEAD is releasable" "yes" "$(status '.[0].releasable')"
+
+# The other way round, the worktree has a commit GitHub does not.
 echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
+git -C "$wt_path" -c user.name=t -c user.email=t@t commit -q --allow-empty -m local
+check "a HEAD ahead of the PR is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
+git -C "$wt_path" reset -q --hard "$head"
 
 touch "$wt_path/scratch.txt"
 check "a dirty tree is not releasable" "uncommitted changes" "$(status '.[0].releasable')"
@@ -120,5 +141,36 @@ git -C "$primary" push -q origin main:refs/heads/feature-c
 check "a branch name taken on GitHub needs a rename" "rename feature-c" "$(preflight feature-c ql-9 QL-9)"
 echo '[{"number":2}]' >"$fake/prs-feature-d.json"
 check "a branch name with an old PR needs a rename" "rename feature-d" "$(preflight feature-d ql-9 QL-9)"
+
+printf 'preflight.sh --pr\n'
+echo '{"nameWithOwner":"acme/app"}' >"$fake/repo.json"
+echo '{"login":"me"}' >"$fake/me.json"
+pr_view() { # number branch author state cross url
+  printf '{"number":%s,"headRefName":"%s","author":{"login":"%s"},"state":"%s","isCrossRepository":%s,"url":"%s","title":"Fix it"}\n' "$@" >"$fake/pr-view.json"
+}
+pr_view 12 released-x me OPEN false https://github.com/acme/app/pull/12
+check "my open PR launches on its branch" "pr released-x pr-12 true" "$(preflight_pr 12 '"\(.verdict) \(.branch) \(.agent) \(.mine)"')"
+
+pr_view 13 released-y teammate OPEN false https://github.com/acme/app/pull/13
+check "a teammate's PR launches as not mine" "pr false" "$(preflight_pr 13 '"\(.verdict) \(.mine)"')"
+
+pr_view 14 feature-a me OPEN false https://github.com/acme/app/pull/14
+check "a PR whose branch has a worktree is skipped" "skip" "$(preflight_pr 14 .verdict)"
+
+pr_view 12 released-x me OPEN false https://github.com/acme/app/pull/12
+echo '{"result":{"agents":[{"name":"pr-12","agent_status":"idle","cwd":"/elsewhere"}]}}' >"$fake/agents.json"
+check "a PR whose agent is live is skipped" "skip" "$(preflight_pr 12 .verdict)"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+
+# herdr-resume builds from origin/<branch>, which a fork PR does not have.
+pr_view 15 patch-1 outsider OPEN true https://github.com/acme/app/pull/15
+check "a fork PR is refused" "refuse" "$(preflight_pr 15 .verdict)"
+
+# gh pr view opens a URL from any repo, so the URL must name this one.
+pr_view 16 released-z me OPEN false https://github.com/other/lib/pull/16
+check "a PR from another repo is refused" "refuse" "$(preflight_pr https://github.com/other/lib/pull/16 .verdict)"
+
+pr_view 17 released-w me MERGED false https://github.com/acme/app/pull/17
+check "a PR that is not open is refused" "refuse" "$(preflight_pr 17 .verdict)"
 
 exit "$failed"

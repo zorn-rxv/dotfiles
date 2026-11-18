@@ -98,7 +98,9 @@ check "a PR head missing here is not releasable" "no pull request holds HEAD" "$
 # A teammate pushes to the PR after the review starts, so its head moves past
 # the worktree's HEAD. Release may still remove the worktree. GitHub keeps
 # every PR's head at refs/pull/<n>/head, and status fetches it from there.
-git clone -q "$scratch/origin.git" "$scratch/teammate"
+# -b main: a bare repo's HEAD names git's default branch, which is master on
+# older git, so a plain clone would commit onto a new, unrelated history.
+git clone -q -b main "$scratch/origin.git" "$scratch/teammate"
 git -C "$scratch/teammate" -c user.name=t -c user.email=t@t commit -q --allow-empty -m pushed
 pushed="$(git -C "$scratch/teammate" rev-parse HEAD)"
 git -C "$scratch/teammate" push -q origin HEAD:refs/heads/feature-a HEAD:refs/pull/7/head

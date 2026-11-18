@@ -22,8 +22,9 @@ mkdir -p "$scratch/bin" "$fake"
 
 # gh: `pr list --head <b>` reads fake/prs-<b with / as _>.json, `pr list
 # --author` reads fake/mine.json, and `pr checks <n>` reads fake/checks-<n>.json.
-# `pr view` reads fake/pr-view.json, `repo view` reads fake/repo.json, and
-# `api user` reads fake/me.json, whatever their arguments.
+# `pr view <ref>` records its ref in fake/pr-view-ref and reads
+# fake/pr-view.json. `repo view` reads fake/repo.json, and `api user` reads
+# fake/me.json.
 cat >"$scratch/bin/gh" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -40,7 +41,7 @@ case "$1 $2" in
     else cat "$fake/prs-${head//\//_}.json" 2>/dev/null || echo '[]'; fi
     ;;
   'pr checks') cat "$fake/checks-$3.json" ;;
-  'pr view') cat "$fake/pr-view.json" ;;
+  'pr view') echo "$3" >"$fake/pr-view-ref"; cat "$fake/pr-view.json" ;;
   'repo view') cat "$fake/repo.json" ;;
   'api user') cat "$fake/me.json" ;;
   *) printf 'unexpected gh call: %s\n' "$*" >&2; exit 1 ;;
@@ -94,17 +95,25 @@ check "checks are counted by bucket" "1 1" "$(status '.[0].checks | "\(.pass) \(
 echo '[{"number":7,"state":"OPEN","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
 check "a PR head missing here is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
 
-# A teammate pushes after the review started: the PR's head moves past the
-# worktree's HEAD. GitHub still holds every commit the worktree has, so
-# Release may remove it. Status must fetch to see the new commit.
+# A teammate pushes to the PR after the review starts, so its head moves past
+# the worktree's HEAD. Release may still remove the worktree. GitHub keeps
+# every PR's head at refs/pull/<n>/head, and status fetches it from there.
 git clone -q "$scratch/origin.git" "$scratch/teammate"
 git -C "$scratch/teammate" -c user.name=t -c user.email=t@t commit -q --allow-empty -m pushed
 pushed="$(git -C "$scratch/teammate" rev-parse HEAD)"
-git -C "$scratch/teammate" push -q origin HEAD:refs/heads/feature-a
+git -C "$scratch/teammate" push -q origin HEAD:refs/heads/feature-a HEAD:refs/pull/7/head
 echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$pushed\"}]" >"$fake/prs-feature-a.json"
 check "a PR whose head is ahead of HEAD is releasable" "yes" "$(status '.[0].releasable')"
 
-# The other way round, the worktree has a commit GitHub does not.
+# A squash merge can delete the branch, which leaves the PR's last head only
+# at refs/pull/<n>/head.
+git -C "$scratch/teammate" -c user.name=t -c user.email=t@t commit -q --allow-empty -m last
+last="$(git -C "$scratch/teammate" rev-parse HEAD)"
+git -C "$scratch/teammate" push -q origin HEAD:refs/pull/8/head
+echo "[{\"number\":8,\"state\":\"MERGED\",\"headRefOid\":\"$last\"}]" >"$fake/prs-feature-a.json"
+check "a merged PR whose branch is gone is releasable" "yes" "$(status '.[0].releasable')"
+
+# The other way around: the worktree has a commit GitHub does not.
 echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
 git -C "$wt_path" -c user.name=t -c user.email=t@t commit -q --allow-empty -m local
 check "a HEAD ahead of the PR is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
@@ -169,6 +178,10 @@ check "a fork PR is refused" "refuse" "$(preflight_pr 15 .verdict)"
 # gh pr view opens a URL from any repo, so the URL must name this one.
 pr_view 16 released-z me OPEN false https://github.com/other/lib/pull/16
 check "a PR from another repo is refused" "refuse" "$(preflight_pr https://github.com/other/lib/pull/16 .verdict)"
+check "a PR URL is passed to gh as given" "https://github.com/other/lib/pull/16" "$(cat "$fake/pr-view-ref")"
+
+pr_view 18 released-v me OPEN false https://github.com/Acme/App/pull/18
+check "a URL that differs from the repo only in case launches" "pr" "$(preflight_pr https://github.com/Acme/App/pull/18 .verdict)"
 
 pr_view 17 released-w me MERGED false https://github.com/acme/app/pull/17
 check "a PR that is not open is refused" "refuse" "$(preflight_pr 17 .verdict)"

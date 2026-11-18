@@ -24,9 +24,9 @@
 #   rename  the planned branch name is taken on GitHub by an earlier branch or PR
 #   clear   none of the above
 #
-# With --pr, the row is a pull request rather than a work item. The verdict is
-# "pr", "skip", or "refuse", and the output adds number, agent (pr-<number>),
-# mine (whether I authored it), title, and author:
+# With --pr, the row is a PR row: a pull request, not a work item. Its verdict
+# is "pr", "skip", or "refuse". The output adds number, agent (pr-<number>),
+# title, author, and mine, which is true when the gh user is the author:
 #   refuse  the PR belongs to another repo, is not open, or comes from a fork
 #   skip    its branch or worktree exists here, or its agent is already live
 #   pr      none of the above; launch it on the PR's branch
@@ -49,6 +49,8 @@ pg_isready -h localhost >/dev/null 2>&1 && postgres=true || postgres=false
 
 worktree_branches="$(git worktree list --porcelain | awk '/^branch /{b=substr($0,8); sub("^refs/heads/","",b); print b}')"
 has_worktree() { grep -qxF "$1" <<<"$worktree_branches"; }
+branch_taken() { [ -n "$(git branch --list "$1")" ] || has_worktree "$1"; }
+agent_live() { herdr agent list | jq -e --arg a "$1" 'any(.result.agents[]; .name == $a)' >/dev/null; }
 
 if [ -n "$pr_ref" ]; then
   pr="$(gh pr view "$pr_ref" --json number,url,state,headRefName,isCrossRepository,title,author)"
@@ -63,43 +65,43 @@ if [ -n "$pr_ref" ]; then
   # GitHub names are case-insensitive.
   if ! jq -e --arg r "$repo" '(.url | ascii_downcase) | startswith("https://github.com/" + ($r | ascii_downcase) + "/pull/")' <<<"$pr" >/dev/null; then
     verdict=refuse reason="PR #$number belongs to another repo, not $repo"
+  # A closed or merged PR has no review or second round left to work on.
   elif [ "$(jq -r .state <<<"$pr")" != OPEN ]; then
     verdict=refuse reason="PR #$number is $(jq -r '.state | ascii_downcase' <<<"$pr"), not open"
-  # wt herdr-resume builds from origin/<branch>, which a fork's branch is not.
+  # wt herdr-resume builds from origin/<branch>, and origin has no fork branch.
   elif [ "$(jq -r .isCrossRepository <<<"$pr")" = true ]; then
     verdict=refuse reason="PR #$number comes from a fork, so origin has no $head_ref"
-  elif [ -n "$(git branch --list "$head_ref")" ] || has_worktree "$head_ref"; then
+  # A local branch would make wt reuse it instead of origin/<branch>.
+  elif branch_taken "$head_ref"; then
     verdict=skip reason="branch $head_ref already exists here"
-  elif herdr agent list | jq -e --arg a "$agent" 'any(.result.agents[]; .name == $a)' >/dev/null; then
+  elif agent_live "$agent"; then
     verdict=skip reason="an agent named $agent is already live"
   fi
 
   jq -n \
     --arg cb "$checkout_branch" --argjson clean "$clean" --argjson pg "$postgres" \
     --arg verdict "$verdict" --arg reason "$reason" --argjson pr "$pr" --arg me "$me" \
+    --arg agent "$agent" \
     '{checkout: {branch: $cb, clean: $clean}, postgres: $pg, verdict: $verdict,
       reason: (if $reason == "" then null else $reason end),
-      branch: $pr.headRefName, number: $pr.number, agent: "pr-\($pr.number)",
+      branch: $pr.headRefName, number: $pr.number, agent: $agent,
       mine: ($pr.author.login == $me), title: $pr.title, author: $pr.author.login}'
   exit 0
 fi
 
-live_agent=false
-herdr agent list | jq -e --arg a "$agent" 'any(.result.agents[]; .name == $a)' >/dev/null && live_agent=true
-
 # Quote the term, so search does not split QL-90 into QL and 90. --author @me
 # keeps a teammate's PR that names the same task from being resumed.
-mine="$(gh pr list --state open --author @me --search "\"$term\" in:body" --json number,headRefName)"
+my_prs="$(gh pr list --state open --author @me --search "\"$term\" in:body" --json number,headRefName)"
 
 verdict=clear reason="" launch="$branch"
 
-if [ -n "$(git branch --list "$branch")" ] || has_worktree "$branch"; then
+if branch_taken "$branch"; then
   verdict=skip reason="branch $branch already exists here"
-elif [ "$live_agent" = true ]; then
+elif agent_live "$agent"; then
   verdict=skip reason="an agent named $agent is already live"
-elif [ "$(jq length <<<"$mine")" -gt 0 ]; then
-  number="$(jq -r '.[0].number' <<<"$mine")"
-  head_ref="$(jq -r '.[0].headRefName' <<<"$mine")"
+elif [ "$(jq length <<<"$my_prs")" -gt 0 ]; then
+  number="$(jq -r '.[0].number' <<<"$my_prs")"
+  head_ref="$(jq -r '.[0].headRefName' <<<"$my_prs")"
   if has_worktree "$head_ref"; then
     verdict=skip reason="open PR #$number names $term and its worktree exists"
   else

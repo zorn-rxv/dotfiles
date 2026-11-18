@@ -7,9 +7,8 @@
 #   worktree-status.sh            # every linked worktree
 #   worktree-status.sh <branch>   # only that branch's worktree
 #
-# Run it from the primary checkout. It runs `git fetch --prune`, so it can see
-# a PR head pushed since the worktree was made, and changes nothing else. Each
-# row:
+# Run it from the primary checkout. It fetches a PR's head commit when that
+# commit is missing here. It changes nothing else. Each row:
 #
 #   label       the Herdr workspace label, or null
 #   branch      the worktree's branch
@@ -27,8 +26,6 @@
 set -euo pipefail
 
 only="${1:-}"
-
-git fetch --prune -q
 
 agents_json="$(herdr agent list)"
 workspaces_json="$(herdr workspace list)"
@@ -57,18 +54,20 @@ while IFS=$'\t' read -r path branch; do
       | select(.cwd == $p or (.cwd | startswith($p + "/")))
       | {name, status: .agent_status}]' <<<"$agents_json")"
 
-  # A PR holds HEAD when HEAD is its head or an ancestor of it, so GitHub has
-  # every commit the worktree has. Ancestry, not equality, because a teammate
-  # can push to a PR under review and leave the worktree behind. A head commit
-  # missing here fails merge-base, which reads as not holding.
+  # Ancestry, not equality: a teammate can push to a PR under review and leave
+  # the worktree behind. Fetch a missing head from refs/pull/<n>/head, because
+  # a squash merge can delete the branch. A head that is still missing fails
+  # merge-base, so the worktree stays.
   prs="$(gh pr list --head "$branch" --state all --json number,state,headRefOid)"
   held="[]"
-  while read -r oid; do
+  while read -r n oid; do
     [ -n "$oid" ] || continue
+    git cat-file -e "$oid^{commit}" 2>/dev/null ||
+      git fetch -q origin "refs/pull/$n/head" 2>/dev/null || true
     if git merge-base --is-ancestor "$head" "$oid" 2>/dev/null; then
       held="$(jq --arg o "$oid" '. + [$o]' <<<"$held")"
     fi
-  done <<<"$(jq -r '.[].headRefOid' <<<"$prs")"
+  done <<<"$(jq -r '.[] | "\(.number) \(.headRefOid)"' <<<"$prs")"
   pr="$(jq --argjson held "$held" '
       map(. + {holds_head: (.headRefOid as $o | $held | index($o) != null)})
       | ((map(select(.state == "OPEN")) + map(select(.holds_head)))[0])

@@ -41,7 +41,7 @@ wt remove <branch>
 
 The hook closes the worktree's Herdr workspace, which also stops anything still running in it. It then drops the worktree's dev and test databases and clears its stored database names and port. `wt` removes the worktree last, and deletes the branch when it is merged. `wt merge` runs the same teardown, because it removes the worktree too. Run from a console in the worktree's own workspace, either command leaves that workspace open, because closing it would stop `wt` mid-removal. Close it yourself afterward.
 
-**4. Release and resume.** When a branch's pull request waits on review, you can remove the worktree and keep the pull request. The same steps abandon work whose pull request has closed. First check three things: the worktree has no uncommitted changes, the pull request's head commit is its `HEAD` or descends from it, and no agent in it is working or waiting on a question. The first two mean GitHub holds every commit. Run `git fetch` first, so a commit pushed from elsewhere is here to compare. Then, from the repo's console, run:
+**4. Release and resume.** When a branch's pull request waits on review, you can remove the worktree and keep the pull request. The same steps abandon work whose pull request has closed. First run `git fetch`, so a commit pushed from elsewhere is available locally. Then check three things: the worktree has no uncommitted changes, the pull request's head commit is the worktree's `HEAD` or descends from it, and no agent in the worktree is working or waiting on a question. The first two mean GitHub holds every commit. Then, from the repo's console, run:
 
 ```sh
 wt remove --foreground -D <branch>

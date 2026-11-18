@@ -14,9 +14,9 @@ metadata:
 
 You are the dispatcher. You send agents out to their own worktrees, know where each one is, and bring the finished ones back. Your job is coordination; each work item belongs to its agent.
 
-A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. A **PR row** is a pull request, named by its number or URL. A work item gets an agent that runs `/implement`. A PR row gets an agent that waits for instructions, for reviewing a teammate's pull request with the app running, or for a second round on your own. Pick the mode from the argument:
+A **work item** is an Asana task, named by its URL, or a QuestLog issue, named by its ID such as `QL-90`. A **PR row** launches an agent on a pull request, named by its number or URL. A work item gets an agent that runs `/implement`. A PR row gets an agent that waits for instructions. Use one to review a teammate's pull request with the app running, or to work a second round on your own. Pick the mode from the argument:
 
-- **Launch:** one or more work items or pull requests, in any mix.
+- **Launch:** one or more work items or PR rows, in any mix.
 - **Status:** `status`, or no argument.
 - **Release:** `release`, followed by work items, branches, or `all`.
 - **Clean:** `clean`, or `clean up`.
@@ -61,7 +61,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    For a PR row, run `scripts/preflight.sh --pr <number or URL>` instead. Its row uses the pull request's branch and the agent name `pr-<number>`. Its verdict is one of three:
 
-   - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. `gh pr view` opens a URL from any repo, and `wt herdr-resume` builds from `origin/<branch>`, which a fork's branch is not. Treat it like a work item from elsewhere: stop, name it, and launch none of the batch.
+   - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. `gh pr view` opens a URL from any repo, and `wt herdr-resume` builds from `origin/<branch>`, but origin has no branch from a fork. Treat it like a work item from elsewhere: stop, name it, and launch none of the batch.
    - **`skip`:** its branch or worktree already exists here, or its agent is live.
    - **`pr`:** launch it. Say on the row whether `mine` is true, because the agent's prompt depends on it.
 
@@ -88,7 +88,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    When `mine` is false, add "Do not commit or push." to the prompt. The branch belongs to a teammate.
 
-Launch is done when `herdr agent list` shows one agent per launched work item, each with its `cwd` in its own worktree. Report the Status table.
+Launch is done when `herdr agent list` shows one agent per launched work item or PR row, each with its `cwd` in its own worktree. Report the Status table.
 
 ## Status
 
@@ -113,7 +113,7 @@ Release removes a worktree whose work is safe on GitHub, so the user can move on
 
 2. **Check each one.** A worktree is releasable only when all of these hold:
 
-   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` that equals the worktree's `HEAD` or descends from it, after a `git fetch`. That proves GitHub has every commit. [ADR 0005](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0005-release-allows-a-stale-head.md) records why a pull request that has moved on still counts.
+   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` that equals the worktree's `HEAD` or descends from it. The script fetches a missing head from `refs/pull/<n>/head`, which outlives a deleted branch. That proves GitHub has every commit. [ADR 0005](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0005-release-allows-a-stale-head.md) records why a pull request that has moved on still counts.
    - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
    - **Its agent is idle:** `herdr agent list` shows no agent with its `cwd` in the worktree that is `working` or `blocked`. Removal kills the agent, along with any question it is waiting on.
 
@@ -121,7 +121,7 @@ Release removes a worktree whose work is safe on GitHub, so the user can move on
 
 3. **Wait for "go", then remove.** Show the list, and say that releasing drops each worktree's dev and test databases. Wait for "go", because `-D` deletes local branches that are not merged. Then, for each one in turn, run step 2's three checks again with `scripts/worktree-status.sh <branch>`. An idle agent can wake during the wait, for example on review feedback, and commit without pushing. A clean tree does not stop `wt remove`, so `-D` would delete that commit. Skip any worktree that now fails, and report why. Otherwise run `wt remove --foreground -D <branch>`. When `wt remove` refuses, follow its message. If a Herdr workspace stays open after a removal, close it with `herdr workspace close <id>`.
 
-Release is done when every named worktree is removed or reported with its reason for staying. For each released worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it.
+Release is done when every named worktree is removed or reported with its reason for staying. For each released worktree whose pull request is open, tell the user that `/dispatch <work item>` resumes it, or `/dispatch <PR>` for a PR row.
 
 ## Clean
 

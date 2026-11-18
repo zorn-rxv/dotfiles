@@ -1,7 +1,7 @@
 ---
 name: dispatch
 description: Dispatch parallel agents into worktrunk worktrees from the primary checkout, one per Asana task, QuestLog issue, or pull request, report on them, release ones whose work is on GitHub, and clean up merged ones.
-argument-hint: "Asana task URLs, QuestLog IDs, or PR numbers or URLs to launch, or \"status\", \"release <IDs or all>\", or \"clean\""
+argument-hint: "Asana task URLs, QuestLog IDs, or PR numbers or URLs to launch, or \"status\", \"release <IDs, PRs, or all>\", or \"clean\""
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -18,7 +18,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
 - **Launch:** one or more work items or PR rows, in any mix.
 - **Status:** `status`, or no argument.
-- **Release:** `release`, followed by work items, branches, or `all`.
+- **Release:** `release`, followed by work items, pull requests, branches, or `all`.
 - **Clean:** `clean`, or `clean up`.
 
 ## Rules for every mode
@@ -61,11 +61,11 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    For a PR row, run `scripts/preflight.sh --pr <number or URL>` instead. Its row uses the pull request's branch and the agent name `pr-<number>`. Its verdict is one of three:
 
-   - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. `gh pr view` opens a URL from any repo, and `wt herdr-resume` builds from `origin/<branch>`, but origin has no branch from a fork. Treat it like a work item from elsewhere: stop, name it, and launch none of the batch.
+   - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. Stop, name it, and launch none of the batch.
    - **`skip`:** its branch or worktree already exists here, or its agent is live.
    - **`pr`:** launch it. Say on the row whether `mine` is true, because the agent's prompt depends on it.
 
-   A PR row never resumes through `/implement`. To get `/implement`'s review feedback loop on your own pull request, name its work item instead.
+   To get `/implement`'s review feedback loop on your own pull request, name its work item.
 
    The user may edit any branch name in the table, except on a "resume" row or a PR row, whose branch must match its pull request. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
 
@@ -98,7 +98,7 @@ Build the table once for each request, and do not poll. Run [`scripts/worktree-s
 | --- | --- |
 | Label | `label` |
 | Branch | `branch` |
-| Agent | `agents`, named with their status; the agent name identifies the work item; "none" when empty |
+| Agent | `agents`, named with their status; the agent name identifies the work item or pull request; "none" when empty |
 | Pull request | `pr`, or "none" |
 | Checks | `checks`, the counts by bucket, when a pull request exists |
 | Releasable | `releasable` |
@@ -113,7 +113,7 @@ Release removes a worktree whose work is safe on GitHub, so the user can move on
 
 2. **Check each one.** A worktree is releasable only when all of these hold:
 
-   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` that equals the worktree's `HEAD` or descends from it. The script fetches a missing head from `refs/pull/<n>/head`, which outlives a deleted branch. That proves GitHub has every commit. [ADR 0005](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0005-release-allows-a-stale-head.md) records why a pull request that has moved on still counts.
+   - **A pull request holds its work:** a pull request for its branch, in any state, has a `headRefOid` that equals the worktree's `HEAD` or descends from it. That proves GitHub has every commit. [ADR 0005](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0005-release-allows-a-stale-head.md) records why a pull request that has moved on still counts.
    - **Its tree is clean:** `git -C <path> status --porcelain` prints nothing.
    - **Its agent is idle:** `herdr agent list` shows no agent with its `cwd` in the worktree that is `working` or `blocked`. Removal kills the agent, along with any question it is waiting on.
 

@@ -15,10 +15,13 @@
 #   verdict    "clear", "skip", "resume", or "rename"
 #   reason     why, for every verdict but "clear"
 #   branch     the branch to launch: the planned one, or the PR's on "resume"
+#   fast_forward  true when a leftover local branch must be fast-forwarded to
+#              origin before the launch
 #
 # The verdicts follow Launch step 4 of the dispatch skill:
 #   skip    the branch or its worktree exists here, an agent already has the
 #           name, or an open PR of mine names the work item and has a worktree
+#           or a local branch with commits origin lacks
 #   resume  an open PR of mine names the work item, with no worktree and no
 #           live agent of that name, so it was released
 #   rename  the planned branch name is taken on GitHub by an earlier branch or PR
@@ -28,7 +31,8 @@
 # is "pr", "skip", or "refuse". The output adds number, agent (pr-<number>),
 # title, author, and mine, which is true when the gh user is the author:
 #   refuse  the PR belongs to another repo, is not open, or comes from a fork
-#   skip    its branch or worktree exists here, or its agent is already live
+#   skip    its worktree exists here, its local branch has commits origin
+#           lacks, or its agent is already live
 #   pr      none of the above; launch it on the PR's branch
 
 set -euo pipefail
@@ -50,6 +54,14 @@ pg_isready -h localhost >/dev/null 2>&1 && postgres=true || postgres=false
 worktree_branches="$(git worktree list --porcelain | awk '/^branch /{b=substr($0,8); sub("^refs/heads/","",b); print b}')"
 has_worktree() { grep -qxF "$1" <<<"$worktree_branches"; }
 branch_taken() { [ -n "$(git branch --list "$1")" ] || has_worktree "$1"; }
+# A plain wt remove keeps an unmerged local branch, and wt herdr-resume reuses
+# it instead of origin/<branch>. Prints "none", "behind" when origin holds all
+# of it so a fast-forward is safe, or "ahead" when it has commits origin lacks.
+leftover() {
+  if [ -z "$(git branch --list "$1")" ]; then echo none
+  elif git merge-base --is-ancestor "refs/heads/$1" "refs/remotes/origin/$1" 2>/dev/null; then echo behind
+  else echo ahead; fi
+}
 agent_live() { herdr agent list | jq -e --arg a "$1" 'any(.result.agents[]; .name == $a)' >/dev/null; }
 
 if [ -n "$pr_ref" ]; then
@@ -59,7 +71,7 @@ if [ -n "$pr_ref" ]; then
   number="$(jq -r .number <<<"$pr")"
   head_ref="$(jq -r .headRefName <<<"$pr")"
   agent="pr-$number"
-  verdict=pr reason=""
+  verdict=pr reason="" fast_forward=false
 
   # gh pr view opens a URL from any repo, so the PR must be this repo's.
   # GitHub names are case-insensitive.
@@ -71,21 +83,25 @@ if [ -n "$pr_ref" ]; then
   # wt herdr-resume builds from origin/<branch>, and origin has no fork branch.
   elif [ "$(jq -r .isCrossRepository <<<"$pr")" = true ]; then
     verdict=refuse reason="PR #$number comes from a fork, so origin has no $head_ref"
-  # A local branch would make wt reuse it instead of origin/<branch>.
-  elif branch_taken "$head_ref"; then
-    verdict=skip reason="branch $head_ref already exists here"
+  elif has_worktree "$head_ref"; then
+    verdict=skip reason="a worktree for $head_ref already exists"
+  elif [ "$(leftover "$head_ref")" = ahead ]; then
+    verdict=skip reason="local branch $head_ref has commits origin lacks"
   elif agent_live "$agent"; then
     verdict=skip reason="an agent named $agent is already live"
+  elif [ "$(leftover "$head_ref")" = behind ]; then
+    fast_forward=true
   fi
 
   jq -n \
     --arg cb "$checkout_branch" --argjson clean "$clean" --argjson pg "$postgres" \
     --arg verdict "$verdict" --arg reason "$reason" --argjson pr "$pr" --arg me "$me" \
-    --arg agent "$agent" \
+    --arg agent "$agent" --argjson ff "$fast_forward" \
     '{checkout: {branch: $cb, clean: $clean}, postgres: $pg, verdict: $verdict,
       reason: (if $reason == "" then null else $reason end),
       branch: $pr.headRefName, number: $pr.number, agent: $agent,
-      mine: ($pr.author.login == $me), title: $pr.title, author: $pr.author.login}'
+      mine: ($pr.author.login == $me), title: $pr.title, author: $pr.author.login,
+      fast_forward: $ff}'
   exit 0
 fi
 
@@ -93,7 +109,7 @@ fi
 # keeps a teammate's PR that names the same task from being resumed.
 my_prs="$(gh pr list --state open --author @me --search "\"$term\" in:body" --json number,headRefName)"
 
-verdict=clear reason="" launch="$branch"
+verdict=clear reason="" launch="$branch" fast_forward=false
 
 if branch_taken "$branch"; then
   verdict=skip reason="branch $branch already exists here"
@@ -104,7 +120,10 @@ elif [ "$(jq length <<<"$my_prs")" -gt 0 ]; then
   head_ref="$(jq -r '.[0].headRefName' <<<"$my_prs")"
   if has_worktree "$head_ref"; then
     verdict=skip reason="open PR #$number names $term and its worktree exists"
+  elif [ "$(leftover "$head_ref")" = ahead ]; then
+    verdict=skip reason="open PR #$number names $term, but local branch $head_ref has commits origin lacks"
   else
+    [ "$(leftover "$head_ref")" = behind ] && fast_forward=true
     verdict=resume reason="open PR #$number names $term and was released; the resumed worktree gets new databases" launch="$head_ref"
   fi
 elif [ -n "$(git ls-remote --heads origin "$branch")" ] ||
@@ -115,5 +134,7 @@ fi
 jq -n \
   --arg cb "$checkout_branch" --argjson clean "$clean" --argjson pg "$postgres" \
   --arg verdict "$verdict" --arg reason "$reason" --arg branch "$launch" \
+  --argjson ff "$fast_forward" \
   '{checkout: {branch: $cb, clean: $clean}, postgres: $pg, verdict: $verdict,
-    reason: (if $reason == "" then null else $reason end), branch: $branch}'
+    reason: (if $reason == "" then null else $reason end), branch: $branch,
+    fast_forward: $ff}'

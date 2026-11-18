@@ -144,6 +144,22 @@ echo '[{"number":5,"headRefName":"feature-a"}]' >"$fake/mine.json"
 check "my open PR with a worktree is skipped" "skip feature-b" "$(preflight feature-b ql-9 QL-9)"
 echo '[{"number":5,"headRefName":"released-x"}]' >"$fake/mine.json"
 check "my open PR without a worktree resumes on its branch" "resume released-x" "$(preflight feature-b ql-9 QL-9)"
+
+# A plain wt remove keeps the local branch, and wt herdr-resume would reuse it
+# instead of origin/<branch>. A branch GitHub fully holds is fast-forwarded. A
+# branch with commits GitHub lacks is left alone.
+git -C "$primary" branch left-behind "$head"
+git -C "$scratch/teammate" push -q origin "$pushed:refs/heads/left-behind"
+echo '[{"number":6,"headRefName":"left-behind"}]' >"$fake/mine.json"
+check "a released branch behind origin resumes with a fast-forward" "resume left-behind true" \
+  "$( (cd "$primary" && "$scripts/preflight.sh" feature-b ql-9 QL-9) | jq -r '"\(.verdict) \(.branch) \(.fast_forward)"')"
+git -C "$primary" branch -q -D left-behind
+git -C "$primary" -c user.name=t -c user.email=t@t commit -q --allow-empty -m local-only
+git -C "$primary" branch left-behind HEAD
+git -C "$primary" reset -q --hard "$head"
+check "a released branch with local-only commits is skipped" "skip" \
+  "$( (cd "$primary" && "$scripts/preflight.sh" feature-b ql-9 QL-9) | jq -r .verdict)"
+echo '[]' >"$fake/mine.json"
 echo '[]' >"$fake/mine.json"
 
 git -C "$primary" push -q origin main:refs/heads/feature-c
@@ -169,6 +185,12 @@ check "a PR whose branch has a worktree is skipped" "skip" "$(preflight_pr 14 .v
 pr_view 12 released-x me OPEN false https://github.com/acme/app/pull/12
 echo '{"result":{"agents":[{"name":"pr-12","agent_status":"idle","cwd":"/elsewhere"}]}}' >"$fake/agents.json"
 check "a PR whose agent is live is skipped" "skip" "$(preflight_pr 12 .verdict)"
+
+pr_view 19 left-behind me OPEN false https://github.com/acme/app/pull/19
+check "a PR whose local branch has local-only commits is skipped" "skip" "$(preflight_pr 19 .verdict)"
+git -C "$primary" branch -q -f left-behind "$head"
+check "a PR whose local branch is behind origin launches with a fast-forward" "pr true" "$(preflight_pr 19 '"\(.verdict) \(.fast_forward)"')"
+git -C "$primary" branch -q -D left-behind
 echo '{"result":{"agents":[]}}' >"$fake/agents.json"
 
 # herdr-resume builds from origin/<branch>, which a fork PR does not have.

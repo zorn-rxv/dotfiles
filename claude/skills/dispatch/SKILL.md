@@ -51,7 +51,7 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
 
    - **The planned branch:** `git branch --list <branch>`, `git worktree list`.
    - **A live agent with the same name:** `herdr agent list`.
-   - **An open pull request of yours whose body names the work item:** `gh pr list --state open --author @me --search '"<GID or ID>" in:body' --json number,headRefName`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`. Keep `--author @me`: a teammate's pull request can name the same task, and resuming it would push to their branch. One exception: when no worktree exists for that pull request's `headRefName` and no live agent has the row's agent name, the work item is **released**, not dispatched. A local branch may still exist, because a plain `wt remove` keeps an unmerged branch. Mark its row "resume", not "skip", and use the pull request's `headRefName` as its branch. Say on the row that the resumed worktree gets new databases, so dev data from before the release is gone.
+   - **An open pull request of yours whose body names the work item:** `gh pr list --state open --author @me --search '"<GID or ID>" in:body' --json number,headRefName`. Search for the task's GID, not its URL, because Asana writes one task's URL in several forms. Quote the term, so search does not split `QL-90` into `QL` and `90`. Keep `--author @me`: a teammate's pull request can name the same task, and resuming it would push to their branch. One exception: when no worktree exists for that pull request's `headRefName` and no live agent has the row's agent name, the work item is **released**, not dispatched. A local branch may still exist, because a plain `wt remove` keeps an unmerged branch. When that branch has commits origin lacks, mark the row "skip" and name the branch. Otherwise mark its row "resume", not "skip", and use the pull request's `headRefName` as its branch. Say on the row that the resumed worktree gets new databases, so dev data from before the release is gone.
 
    A fresh slug can differ from an earlier run's, so the branch check alone misses a re-dispatch.
 
@@ -62,14 +62,14 @@ A **work item** is an Asana task, named by its URL, or a QuestLog issue, named b
    For a PR row, run `scripts/preflight.sh --pr <number or URL>` instead. Its row uses the pull request's branch and the agent name `pr-<number>`. Its verdict is one of three:
 
    - **`refuse`:** the pull request belongs to another repo, is not open, or comes from a fork. Stop, name it, and launch none of the batch.
-   - **`skip`:** its branch or worktree already exists here, or its agent is live.
+   - **`skip`:** its worktree already exists here, its local branch has commits origin lacks, or its agent is live.
    - **`pr`:** launch it. Say on the row whether `mine` is true, because the agent's prompt depends on it.
 
    To get `/implement`'s review feedback loop on your own pull request, name its work item.
 
    The user may edit any branch name in the table, except on a "resume" row or a PR row, whose branch must match its pull request. `/implement` keeps the branch its worktree was made with, so the name chosen here is final. Wait for "go" before you create anything, then launch only the rows not marked "skip".
 
-5. **Create each worktree.** Run `wt herdr <branch>`. For a "resume" row or a PR row, run `wt herdr-resume <branch>` instead. `wt herdr` passes `--create`, which ignores the remote branch and starts a new one from `main` without the pull request's commits. Either command's last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
+5. **Create each worktree.** Run `wt herdr <branch>`. For a "resume" row or a PR row, run `wt herdr-resume <branch>` instead. `wt herdr` passes `--create`, which ignores the remote branch and starts a new one from `main` without the pull request's commits. When preflight reported `fast_forward: true`, first run `git fetch origin <branch>:<branch>`, so `wt herdr-resume` builds on the pull request's commits rather than a stale local branch. Either command's last line is JSON. Read the new pane's ID from `.result.root_pane.pane_id`.
 
 6. **Start each agent** under its agent name:
 
@@ -109,7 +109,7 @@ Status is done when every linked worktree has a row with all six columns filled,
 
 Release removes a worktree whose work is safe on GitHub, so the user can move on while its pull request waits. The pull request and the remote branch stay. Launch resumes it later. [ADR 0004](https://github.com/zorn-rxv/dotfiles/blob/main/docs/adr/0004-release-needs-a-pushed-head.md) records why Release, unlike Clean, removes unmerged work.
 
-1. **Find the worktrees.** The argument names work items, branches, pull requests, or `all`. A pull request's number or URL names its `headRefName`, from `gh pr view <number or URL> --json headRefName`. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list`. When none does, report the work item as not releasable. `all` means every linked worktree that passes the check in step 2. Never release the primary checkout.
+1. **Find the worktrees.** The argument names work items, branches, pull requests, or `all`. A pull request's number or URL names its `headRefName`, from `gh pr view <number or URL> --json headRefName,url,isCrossRepository`. Refuse a pull request from another repo or a fork, as Launch does, because its branch name can match an unrelated worktree here. For a work item, search as Launch step 4 does, with `--author @me`, but with `--state all --json number,state,headRefName,headRefOid`. The search can return several pull requests, such as an earlier merged one. Use the one whose `headRefName` has a linked worktree in `git worktree list`. When none does, report the work item as not releasable. `all` means every linked worktree that passes the check in step 2. Never release the primary checkout.
 
 2. **Check each one.** A worktree is releasable only when all of these hold:
 

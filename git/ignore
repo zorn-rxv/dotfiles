@@ -11,4 +11,4 @@
 __pycache__/
 
 # Reports the elixir-security-audit skill writes; they describe exploitable weaknesses, and ignoring them here spares a shared repo's .gitignore
-security_audit_*.md
+/security_audit_*.md

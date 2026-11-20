@@ -169,7 +169,7 @@ Read `references/report-template.md` and follow it exactly. **Every finding open
 
 Technical details come **after** those four items. The report must also say what the audit did not cover. A short report is not proof the app is safe, and the user should hear that clearly.
 
-Save the report as `security_audit_YYYY-MM-DD.md` in the project root. If the project uses git, check `git check-ignore -q <file>`. If it isn't ignored and the user agreed in Phase 1, add `/security_audit_*.md` to `.gitignore`. If they didn't agree, warn them that the report describes exploitable weaknesses and shouldn't be committed. Then summarize in chat as the template describes.
+Save the report as `security_audit_YYYY-MM-DD.md` in the project root. In a linked worktree, save it in the main worktree's root instead, the first path `git worktree list` prints. Removing a worktree deletes its ignored files, so a report saved there disappears with it. If the project uses git, check `git check-ignore -q <file>`. If it isn't ignored and the user agreed in Phase 1, add `/security_audit_*.md` to `.gitignore`. If they didn't agree, warn them that the report describes exploitable weaknesses and shouldn't be committed. Then summarize in chat as the template describes.
 
 ### Phase 7: Next steps
 

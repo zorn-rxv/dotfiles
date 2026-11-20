@@ -62,6 +62,7 @@ Run a quick readiness check now, so Phase 1 asks only for permissions that are a
 - Do the pinned versions match what's installed? (`asdf current` / `mise current` vs `.tool-versions`)
 - Is Sobelow available: in `mix.exs` deps, as `sobelow` on `PATH`, or at `~/.mix/escripts/sobelow`?
 - Is a local database reachable for tests? (`pg_isready`, or the MySQL/SQLite equivalent for the configured Ecto adapter)
+- In a git project, is the report file already ignored? (`git check-ignore -q security_audit_YYYY-MM-DD.md`, with today's date)
 
 Then tell the user, in a few lines:
 
@@ -106,7 +107,7 @@ Read `references/intake.md`. Inspect the project first, then ask everything in *
   - "temporarily use a different installed Elixir version, without changing your files", if the pinned versions aren't installed
   - "install Sobelow" (as a project dependency, or as a standalone tool in `~/.mix`), if it isn't available
   - "run small automated tests locally to confirm a finding". Ask always. If a database is reachable, mention that tests create a separate test database and don't touch the dev data.
-  - "add the audit report file to `.gitignore` so it isn't committed by accident", if the project uses git
+  - "add the audit report file to `.gitignore` so it isn't committed by accident", if the project uses git and the report file isn't already ignored
 
   Anything they decline, skip, and note the gap in the report.
 - One sentence noting that running `mix` compiles and runs the project's code, which is normal.

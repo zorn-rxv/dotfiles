@@ -2,8 +2,6 @@
 
 Commands and outputs here were checked against Hex 2.5.4 and Sobelow 0.18.1. If a newer version behaves differently, trust what you observe and note the difference in the report.
 
-Before the first `mix` command, tell the user once that mix compiles and runs project and dependency code. This is normal for their own project.
-
 ## Getting mix to run
 
 Real projects often don't run cleanly on the first try. Handle these cases in order:

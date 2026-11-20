@@ -1,6 +1,6 @@
 ---
 name: elixir-security-audit
-description: Security audit of the current Elixir project (Phoenix, LiveView, Absinthe, and Ash supported; Phoenix optional) for someone with no security background. Offers a quick check or a full audit. Covers intake questions, Hex and Sobelow checks, CI review, triage of scanner output, a manual hunt for high-severity bugs (RCE, SSRF, file inclusion/traversal, access control), a skeptical second reviewer ("Eve") who must approve every finding, and a plain-language report. Use when the user asks to secure, audit, pentest, or security-review an Elixir, Phoenix, or LiveView app, or asks about Sobelow, mix hex.audit, or vulnerabilities in a mix project.
+description: Audit a whole Elixir project for security — Phoenix, LiveView, Absinthe, Ash, or plain mix — with Hex and Sobelow scans, a manual hunt, and a plain-language report. Use when the user asks to secure, audit, pentest, or security-review an Elixir or Phoenix app, or asks about Sobelow, mix hex.audit, or vulnerabilities in a mix project. A security review of only the current branch's changes is the built-in security-review instead.
 compatibility: Works best with Claude Code or OpenAI Codex; works with any agent that can read files and run shell commands. An Elixir toolchain is recommended; subagent support is optional.
 license: MIT
 metadata:
@@ -34,12 +34,10 @@ Assume the user has **no security background**:
 - Explain each security term the first time you use it, in one short sentence. For example: "SSRF (server-side request forgery) means an attacker tricks your server into making web requests for them, often to internal systems they can't reach directly."
 - Say why you are asking each question.
 - Spend your effort on bugs that let an attacker take over the server, read other people's data, or act as another user. Don't bury the user in low-severity noise.
-- Never make the user feel bad about a finding. Most real apps have some.
 
 ## Ground rules
 
 - **Read code, don't attack production.** Verify by reading code and, with permission, by running tests or the app **locally**. Never send attack traffic to a deployed environment.
-- Running `mix` compiles and runs project and dependency code. That is normal for the user's own project. Say so once, in the Phase 1 question round.
 - Don't modify project files (`mix.exs`, `.tool-versions`, CI files, code, `.gitignore`) without asking first. Scratch output goes outside the project or gets deleted at the end.
 - A finding is not official until **Eve** confirms it (see Phase 5). Don't present unreviewed suspicions as findings.
 - Cite `file:line` for every claim.
@@ -82,7 +80,7 @@ Offer two modes in the Phase 1 question round.
 |---|---|
 | Phases 1-3 | Same as the full audit |
 | Phase 4 map | Router-level only: which routes, LiveViews, GraphQL operations, and Ash actions need no login, need any login, or need admin. The ledger lists each at that level. |
-| Phase 4 triage | Only Hex security items and Sobelow `RCE.*`, `CI.*`, `Misc.BinToTerm`, `Vuln.CookieRCE`, `SQL.*`, and `Traversal.*` findings. Other Sobelow results are counted in the report but not triaged. |
+| Phase 4 triage | Only Hex security items and the Sobelow types in item 1 of the triage order at the top of `references/triage.md`. Other Sobelow results are counted in the report but not triaged. |
 | Phase 4 manual review | Only checklist Step 2 (RCE) and Step 3 (access control) |
 | Phase 5 | Eve still reviews every candidate. This is never skipped. |
 | Phase 6 | Same report. The coverage section states that this was a quick check and lists what it skipped. |
@@ -95,13 +93,6 @@ Read `references/intake.md`. Inspect the project first, then ask everything in *
 
 - the five intake questions
 - which mode they want: full audit or quick check (see "Choosing the depth"). Recommend the full audit for internet-facing apps.
-- **If you are Claude:** whether they have access to Anthropic's **Cyber Verification Program**. Other agents skip this question. If they don't have access, encourage them to apply, and explain it plainly:
-  - Claude's safety filters sometimes interrupt legitimate security work, like checking whether a vulnerability can really be exploited.
-  - The program reduces that for verified defenders.
-  - Individuals can apply for "Defense" access. It requires a paid Claude plan, and Anthropic aims to respond within about seven business days.
-  - Details: https://support.claude.com/en/articles/14604842-cyber-verification-program. Apply: https://portal.anthropic.com/programs.
-
-  Continue the audit either way.
 - **Permissions,** so you don't have to stop later. Based on the Phase 0 readiness check, ask only for what's needed, each in plain words:
   - "download dependencies (`mix deps.get`)", if `deps/` is missing
   - "temporarily use a different installed Elixir version, without changing your files", if the pinned versions aren't installed
@@ -116,7 +107,7 @@ Read `references/intake.md`. Inspect the project first, then ask everything in *
 
 Read `references/tooling.md`. Check:
 
-1. **Hex version.** Hex 2.5.0+ warns about dependencies with known security advisories and makes `mix hex.audit` fail on them. What matters is the version on CI and the team's machines, not this one. Judge from CI config where possible (`references/tooling.md`).
+1. **Hex version,** as the "Check the version" section of `references/tooling.md` describes.
 2. **Sobelow usage.** Sobelow is a static analysis security scanner for Elixir and Phoenix. If there are no Sobelow skips anywhere, assume nobody has triaged its findings, even if it is installed.
 3. **CI/CD.** Is there a pipeline? If so, does it run `mix hex.audit` (or another dependency check) and Sobelow?
 

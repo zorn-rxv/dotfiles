@@ -20,7 +20,7 @@ When Claude Code's auto mode setup runs, it writes a new `autoMode` block into `
 
 [Agent Skills](https://agentskills.io) I maintain. Each is a directory with a `SKILL.md`, plus optional `scripts/` and `reference/` material. They come from my personal [zorn/dotfiles](https://github.com/zorn/dotfiles/tree/main/claude/skills). `dispatch` launches agents into worktrunk worktrees, one per Asana task or QuestLog issue, and releases a worktree once its pull request holds the work. It works only in a repo whose worktrees are isolated, which today means verify-doctor. `wayfinder` keeps its map in QuestLog, my local issues in `~/QuestLog`. The rest track work in Asana rather than GitHub issues; `claude/CLAUDE.md` names each repo's board.
 
-Most began as forks of [mattpocock/skills](https://github.com/mattpocock/skills) and were reshaped to fit how I work. Every forked skill records where it came from in its `metadata` frontmatter, and `claude/skills/LICENSE` carries the upstream notice.
+Most began as forks of [mattpocock/skills](https://github.com/mattpocock/skills) and were reshaped to fit how I work. `elixir-security-audit` is a fork of [paraxialio/skills](https://github.com/paraxialio/skills). Every forked skill records where it came from in its `metadata` frontmatter, and `claude/skills/LICENSE` carries the upstream notice.
 
 A skill with malformed frontmatter fails silently. It never activates, and nothing reports an error. So `bin/check-skills` validates every skill against the [Agent Skills spec](https://agentskills.io/specification) on each pull request. It also checks that relative links resolve and that bundled Python compiles.
 

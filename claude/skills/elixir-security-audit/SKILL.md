@@ -1,6 +1,6 @@
 ---
 name: elixir-security-audit
-description: Audit a whole Elixir project for security — Phoenix, LiveView, Absinthe, Ash, or plain mix — with Hex and Sobelow scans, a manual hunt, and a plain-language report. Use when the user asks to secure, audit, pentest, or security-review an Elixir or Phoenix app, or asks about Sobelow, mix hex.audit, or vulnerabilities in a mix project. A security review of only the current branch's changes is the built-in security-review instead.
+description: Audit a whole Elixir project for security — Phoenix, LiveView, Absinthe, Ash, or plain mix — with Hex and Sobelow scans, a manual hunt, and a plain-language report. Use when the user asks to secure, audit, pentest, or security-review an Elixir, Phoenix, or LiveView app, or asks about Sobelow, mix hex.audit, or vulnerabilities in a mix project. A security review of only the current branch's changes is the built-in security-review instead.
 compatibility: Works best with Claude Code or OpenAI Codex; works with any agent that can read files and run shell commands. An Elixir toolchain is recommended; subagent support is optional.
 license: MIT
 metadata:
@@ -80,7 +80,7 @@ Offer two modes in the Phase 1 question round.
 |---|---|
 | Phases 1-3 | Same as the full audit |
 | Phase 4 map | Router-level only: which routes, LiveViews, GraphQL operations, and Ash actions need no login, need any login, or need admin. The ledger lists each at that level. |
-| Phase 4 triage | Only Hex security items and the Sobelow types in item 1 of the triage order at the top of `references/triage.md`. Other Sobelow results are counted in the report but not triaged. |
+| Phase 4 triage | Only Hex security items and the Sobelow types in item 1 of the "order the work by likely impact" list in `references/triage.md`. Other Sobelow results are counted in the report but not triaged. |
 | Phase 4 manual review | Only checklist Step 2 (RCE) and Step 3 (access control) |
 | Phase 5 | Eve still reviews every candidate. This is never skipped. |
 | Phase 6 | Same report. The coverage section states that this was a quick check and lists what it skipped. |

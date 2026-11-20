@@ -31,6 +31,7 @@ mix hex.info
 
 The output includes a line like `Hex:    2.5.4`. It may also say "A new Hex version is available".
 
+- **The Hex version you see is the one on this machine,** not the team's or CI's. For the scorecard, judge from CI config, or tell the user each developer should check with `mix hex.info`.
 - **Below 2.5.0:** recommend `mix local.hex --force`, a user-level install. Ask first. Explain in one sentence: Hex 2.5.0 added warnings about dependencies with known security advisories, and makes `mix hex.audit` fail on them. Older versions only report retired packages.
 - **2.6.0 and later** can also produce SARIF for GitHub code scanning: `mix hex.audit --format sarif --output hex.sarif`.
 
@@ -59,7 +60,6 @@ Advisories:
 - `hex.outdated` is context. Being outdated alone is not a vulnerability.
 - If the project already has `mix_audit` as a dependency, also run `mix deps.audit`, and merge its results with `hex.audit`. They overlap; deduplicate by CVE/GHSA ID.
 - If Hex can't be upgraded yet and `mix_audit` isn't present, it's an alternative. It needs to be added as a dependency, so ask first.
-- **The Hex version you see is the one on this machine,** not the team's or CI's. For the scorecard, judge from CI config, or tell the user each developer should check with `mix hex.info`.
 
 ### Elixir, Erlang/OTP, and base image
 

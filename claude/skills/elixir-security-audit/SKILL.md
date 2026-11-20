@@ -2,9 +2,14 @@
 name: elixir-security-audit
 description: Security audit of the current Elixir project (Phoenix, LiveView, Absinthe, and Ash supported; Phoenix optional) for someone with no security background. Offers a quick check or a full audit. Covers intake questions, Hex and Sobelow checks, CI review, triage of scanner output, a manual hunt for high-severity bugs (RCE, SSRF, file inclusion/traversal, access control), a skeptical second reviewer ("Eve") who must approve every finding, and a plain-language report. Use when the user asks to secure, audit, pentest, or security-review an Elixir, Phoenix, or LiveView app, or asks about Sobelow, mix hex.audit, or vulnerabilities in a mix project.
 compatibility: Works best with Claude Code or OpenAI Codex; works with any agent that can read files and run shell commands. An Elixir toolchain is recommended; subagent support is optional.
+license: MIT
 metadata:
-  author: Paraxial.io
-  version: "1.0"
+  forked-from: https://github.com/paraxialio/skills
+  forked-skill: elixir-security-audit
+  forked-on: "2026-11-20"
+  forked-commit: a80a855fb96372e3febb4bdb9771527575220207
+  upstream-copyright: Copyright (c) 2026 Paraxial.io, MIT
+  editor: Mike Zornek
 ---
 
 # Elixir / Phoenix Security Audit

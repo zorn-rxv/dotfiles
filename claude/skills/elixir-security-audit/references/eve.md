@@ -86,7 +86,7 @@ IF NEEDS_EVIDENCE: <the specific questions or proof that would convince you>
 - **NEEDS_EVIDENCE:** gather exactly what she asked for and resubmit.
   - Usually this means more code tracing.
   - Many Phoenix test setups need a database: the default `test` alias runs `ecto.create`. If the Phase 0 check found no reachable database, either write a test that doesn't touch the database (plug or pure-function level), or rely on code tracing and say so.
-  - It can also mean a local test, such as an ExUnit test using `Phoenix.ConnTest` or `Phoenix.LiveViewTest`. Only do this if the user granted local-test permission in Phase 1. If they weren't asked, ask now, in plain words: "I'd like to run a small automated test on your computer that tries the attack against a local copy of the app. It doesn't touch your live site. OK?" Never test against a deployed environment, and delete any test file you added afterwards unless the user wants to keep it.
+  - It can also mean a local test, such as an ExUnit test using `Phoenix.ConnTest` or `Phoenix.LiveViewTest`. Only do this if the user granted local-test permission in Phase 1. If they weren't asked, ask now, in plain words: "I'd like to run a small automated test on your computer that tries the attack against a local copy of the app. It doesn't touch your live site. OK?" Never test against a deployed environment, and delete any test file you added afterward unless the user wants to keep it.
 - **Limit:** at most two rounds per finding. If it's still unresolved, put it in "Needs human review" with Eve's open questions.
 
 Never present a finding as confirmed without Eve's CONFIRMED verdict. Never edit her reasoning to make it look more favorable.

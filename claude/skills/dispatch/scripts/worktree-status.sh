@@ -11,7 +11,8 @@
 # commit is missing here. It changes nothing else. Each row:
 #
 #   label       the Herdr workspace label, or null
-#   workspace_id  the Herdr workspace id, or null. Release closes it by this.
+#   workspace_id  the Herdr workspace id, or null. Labels can repeat, so
+#               Release and Clean close a workspace by this id.
 #   branch      the worktree's branch
 #   path        the worktree's path
 #   head        the worktree's HEAD commit, or null when its directory is gone
@@ -24,9 +25,9 @@
 #               when the lookup failed, or null with no PR
 #   dirty       the number of `git status --porcelain` lines, or null when its
 #               directory is gone
-#   releasable  "yes", or the first reason Release would refuse it. An agent
-#               counts as idle only when Herdr says idle or done, so unknown
-#               and any newer status block a release.
+#   releasable  "yes", or the first reason Release would refuse it. Only an
+#               idle or done agent counts as idle. Any other status, such as
+#               unknown, blocks a release.
 
 set -euo pipefail
 
@@ -36,11 +37,10 @@ agents_json="$(herdr agent list)"
 workspaces_json="$(herdr workspace list)"
 
 # `git worktree list --porcelain` prints the primary checkout first. Skip its
-# record by position, because a detached primary prints no branch line, and
-# dropping the first printed row would then drop a linked worktree instead. A
-# detached linked worktree has no branch line either, and dispatch never makes
-# one. macOS ships bash 3.2, which has no mapfile, so read the rows from a
-# variable.
+# record by position. A detached primary prints no branch line, so skipping
+# the first printed row would drop a linked worktree instead. A detached
+# linked worktree has no branch line either, and dispatch never makes one.
+# macOS ships bash 3.2, which has no mapfile, so read the rows from a variable.
 rows="$(
   git worktree list --porcelain |
     awk '/^worktree /{n++; p=substr($0,10)} /^branch /{if (n > 1) {b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}}'
@@ -51,13 +51,12 @@ while IFS=$'\t' read -r path branch; do
   [ -n "$path" ] || continue
   [ -z "$only" ] || [ "$branch" = "$only" ] || continue
 
-  # Labels can repeat, so Release closes a workspace by its id.
   workspace="$(jq --arg p "$path" '[.result.workspaces[] | select(.worktree.checkout_path == $p)][0]' <<<"$workspaces_json")"
   label="$(jq '.label // null' <<<"$workspace")"
   workspace_id="$(jq '.workspace_id // null' <<<"$workspace")"
 
-  # git still lists a directory deleted without `git worktree prune`, and git
-  # -C fails on it under set -e, which would print no row at all. Report it.
+  # git still lists a directory deleted without `git worktree prune`. git -C
+  # fails on it, and under set -e the script would print no rows at all.
   if [ ! -d "$path" ]; then
     out="$(jq --argjson label "$label" --argjson ws "$workspace_id" --arg branch "$branch" --arg path "$path" \
       '. + [{label: $label, workspace_id: $ws, branch: $branch, path: $path, head: null, agents: [],
@@ -96,10 +95,9 @@ while IFS=$'\t' read -r path branch; do
   checks=null
   number="$(jq -r '.number // empty' <<<"$pr")"
   if [ -n "$number" ]; then
-    # gh exits non-zero when a check failed or is pending, and its JSON is still
-    # complete. A failed lookup prints no JSON, so it reads "unavailable" rather
-    # than as a PR with nothing failing. gh also exits non-zero with "no checks
-    # reported" on a PR that has none, which is a real zero.
+    # gh exits non-zero when a check failed or is pending, but its JSON is
+    # still complete. A failed lookup prints no JSON. It reads "unavailable",
+    # not zero failures. "no checks reported" is a real zero.
     checks_err="$(mktemp)"
     checks_raw="$(gh pr checks "$number" --json bucket 2>"$checks_err" || true)"
     if grep -q 'no checks reported' "$checks_err"; then checks_raw='[]'; fi

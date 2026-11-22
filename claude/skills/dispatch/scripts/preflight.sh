@@ -19,10 +19,13 @@
 #              origin before the launch
 #
 # The verdicts follow Launch step 4 of the dispatch skill:
-#   skip    an agent already has the name, any open PR of mine that names the
-#           work item has a worktree or a local branch with commits origin
-#           lacks, more than one such PR was released, or the planned branch
-#           or its worktree exists here
+#   skip    any one of these:
+#           - an agent already has the name
+#           - an open PR of mine names the work item and has a worktree here
+#           - an open PR of mine names the work item, and its local branch has
+#             commits origin lacks
+#           - more than one open PR of mine names the work item and was released
+#           - the planned branch or its worktree exists here
 #   resume  exactly one open PR of mine names the work item, with no worktree
 #           and no live agent of that name, so it was released. Its branch
 #           may still exist here, even under the planned name.
@@ -64,9 +67,11 @@ leftover() {
   elif git merge-base --is-ancestor "refs/heads/$1" "refs/remotes/origin/$1" 2>/dev/null; then echo behind
   else echo ahead; fi
 }
-# Read Herdr once, outside any condition. Inside an `if`, set -e does not fire,
-# so a failed lookup would read as "no such agent" and launch a second one.
+# Read Herdr once, outside any condition. Inside an `if`, set -e does not fire.
+# A failed lookup would then read as "no such agent", and dispatch would launch
+# a second agent onto the work.
 agents_json="$(herdr agent list)"
+# A zero exit with no agents array would read the same way, so it aborts too.
 jq -e '.result.agents | type == "array"' <<<"$agents_json" >/dev/null
 agent_live() { jq -e --arg a "$1" 'any(.result.agents[]; .name == $a)' <<<"$agents_json" >/dev/null; }
 
@@ -115,35 +120,35 @@ fi
 # keeps a teammate's PR that names the same task from being resumed.
 my_prs="$(gh pr list --state open --author @me --search "\"$term\" in:body" --json number,headRefName)"
 
-# Checked assignments, outside any condition, so a failed lookup aborts
-# instead of reading as "the name is unused".
+# Assign these outside any condition, so a failed lookup aborts. Inside the
+# condition, it would read as "the name is unused".
 remote_head="$(git ls-remote --heads origin "$branch")"
-old_prs="$(gh pr list --head "$branch" --state all --json number | jq length)"
+old_pr_count="$(gh pr list --head "$branch" --state all --json number | jq length)"
 
 verdict=clear reason="" launch="$branch" fast_forward=false
 
 # Read every open PR, not only the first. Any one that is still dispatched
 # here skips the row, and more than one released PR leaves no single branch
 # to resume.
-dispatched="" resumable=0 number="" head_ref=""
+dispatched_reason="" resumable=0 number="" head_ref=""
 while read -r n ref; do
   [ -n "$ref" ] || continue
   if has_worktree "$ref"; then
-    dispatched="open PR #$n names $term and its worktree exists"
+    dispatched_reason="open PR #$n names $term and its worktree exists"
   elif [ "$(leftover "$ref")" = ahead ]; then
-    dispatched="open PR #$n names $term, but local branch $ref has commits origin lacks"
+    dispatched_reason="open PR #$n names $term, but local branch $ref has commits origin lacks"
   else
     resumable=$((resumable + 1)) number="$n" head_ref="$ref"
   fi
 done <<<"$(jq -r '.[] | "\(.number) \(.headRefName)"' <<<"$my_prs")"
 
-# Open PRs come before the planned branch: a plain wt remove keeps the local
-# branch, and a re-dispatch can derive the same slug, so a branch that exists
-# here may belong to a released PR that should resume.
+# Open PRs come before the planned branch. A plain wt remove keeps the local
+# branch, and a re-dispatch can derive the same slug. So the planned branch
+# can belong to a released PR that should resume.
 if agent_live "$agent"; then
   verdict=skip reason="an agent named $agent is already live"
-elif [ -n "$dispatched" ]; then
-  verdict=skip reason="$dispatched"
+elif [ -n "$dispatched_reason" ]; then
+  verdict=skip reason="$dispatched_reason"
 elif [ "$resumable" -gt 1 ]; then
   verdict=skip reason="$resumable open PRs of mine name $term; release or close all but one"
 elif [ "$resumable" -eq 1 ]; then
@@ -151,7 +156,7 @@ elif [ "$resumable" -eq 1 ]; then
   verdict=resume reason="open PR #$number names $term and was released; the resumed worktree gets new databases" launch="$head_ref"
 elif branch_taken "$branch"; then
   verdict=skip reason="branch $branch already exists here"
-elif [ -n "$remote_head" ] || [ "$old_prs" -gt 0 ]; then
+elif [ -n "$remote_head" ] || [ "$old_pr_count" -gt 0 ]; then
   verdict=rename reason="$branch is taken on GitHub by an earlier branch or PR; pick another slug"
 fi
 

@@ -25,7 +25,8 @@
 #           - an open PR of mine names the work item, and its local branch has
 #             commits origin lacks
 #           - more than one open PR of mine names the work item and was released
-#           - the planned branch or its worktree exists here
+#           - the planned branch or its worktree exists here, unless it is the
+#             one released PR's own branch
 #   resume  exactly one open PR of mine names the work item, with no worktree
 #           and no live agent of that name, so it was released. Its branch
 #           may still exist here, even under the planned name.
@@ -122,7 +123,8 @@ my_prs="$(gh pr list --state open --author @me --search "\"$term\" in:body" --js
 
 # Assign these outside any condition, so a failed lookup aborts. Inside the
 # condition, it would read as "the name is unused".
-remote_head="$(git ls-remote --heads origin "$branch")"
+# A bare name matches any ref that ends in it, such as alice/<branch>.
+remote_head="$(git ls-remote --heads origin "refs/heads/$branch")"
 old_pr_count="$(gh pr list --head "$branch" --state all --json number | jq length)"
 
 verdict=clear reason="" launch="$branch" fast_forward=false
@@ -144,13 +146,16 @@ done <<<"$(jq -r '.[] | "\(.number) \(.headRefName)"' <<<"$my_prs")"
 
 # Open PRs come before the planned branch. A plain wt remove keeps the local
 # branch, and a re-dispatch can derive the same slug. So the planned branch
-# can belong to a released PR that should resume.
+# can belong to a released PR that should resume. Under any other name, it
+# means the work item is still being worked on here.
 if agent_live "$agent"; then
   verdict=skip reason="an agent named $agent is already live"
 elif [ -n "$dispatched_reason" ]; then
   verdict=skip reason="$dispatched_reason"
 elif [ "$resumable" -gt 1 ]; then
   verdict=skip reason="$resumable open PRs of mine name $term; release or close all but one"
+elif [ "$resumable" -eq 1 ] && [ "$branch" != "$head_ref" ] && branch_taken "$branch"; then
+  verdict=skip reason="branch $branch already exists here, beside released PR #$number"
 elif [ "$resumable" -eq 1 ]; then
   [ "$(leftover "$head_ref")" = behind ] && fast_forward=true
   verdict=resume reason="open PR #$number names $term and was released; the resumed worktree gets new databases" launch="$head_ref"

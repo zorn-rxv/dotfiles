@@ -55,23 +55,25 @@ while IFS=$'\t' read -r path branch; do
   label="$(jq '.label // null' <<<"$workspace")"
   workspace_id="$(jq '.workspace_id // null' <<<"$workspace")"
 
+  # Match on a path boundary, so /repo.feature-a does not claim /repo.feature-ab's
+  # agent. Herdr can report a null cwd, and startswith fails on null.
+  agents="$(jq --arg p "$path" '[.result.agents[]
+      | select((.cwd // "") as $c | $c == $p or ($c | startswith($p + "/")))
+      | {name, status: .agent_status}]' <<<"$agents_json")"
+
   # git still lists a directory deleted without `git worktree prune`. git -C
-  # fails on it, and under set -e the script would print no rows at all.
+  # fails on it, and under set -e the script would print no rows at all. Its
+  # Herdr workspace can outlive it, so the row still lists its agents.
   if [ ! -d "$path" ]; then
     out="$(jq --argjson label "$label" --argjson ws "$workspace_id" --arg branch "$branch" --arg path "$path" \
-      '. + [{label: $label, workspace_id: $ws, branch: $branch, path: $path, head: null, agents: [],
+      --argjson agents "$agents" \
+      '. + [{label: $label, workspace_id: $ws, branch: $branch, path: $path, head: null, agents: $agents,
              pr: null, checks: null, dirty: null, releasable: "worktree directory missing"}]' <<<"$out")"
     continue
   fi
 
   head="$(git -C "$path" rev-parse HEAD)"
   dirty="$(git -C "$path" status --porcelain | wc -l | tr -d ' ')"
-
-  # Match on a path boundary, so /repo.feature-a does not claim /repo.feature-ab's
-  # agent. Herdr can report a null cwd, and startswith fails on null.
-  agents="$(jq --arg p "$path" '[.result.agents[]
-      | select((.cwd // "") as $c | $c == $p or ($c | startswith($p + "/")))
-      | {name, status: .agent_status}]' <<<"$agents_json")"
 
   # Ancestry, not equality: a teammate can push to a PR under review and leave
   # the worktree behind. Fetch a missing head from refs/pull/<n>/head, because

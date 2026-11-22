@@ -51,9 +51,11 @@ Run `diff-review` against `main`. Reviewing here rather than after pushing is th
 
 Apply what it recommends. Findings arrive as a numbered decision list, and that skill's contract governs how the user's reply is read.
 
-Then stop and ask the user to run `/code-review`. It hunts correctness bugs, which `diff-review` targets only for races between users, and no bot reviews the PR after it opens — so this is the last bug-hunting pass before a person sees the change. Do not run it yourself: the user picks its effort level, and the higher levels are costly. When the change is large or risky, say so, so the user can pick a higher level. Apply its findings the same way as `diff-review`'s.
+Once those changes are applied, run `code-review` yourself through the Skill tool. It hunts correctness bugs, which `diff-review` targets only for races between users, and no bot reviews the PR after it opens — so this is the last bug-hunting pass before a person sees the change. It runs after the `diff-review` changes so that it reviews the code that will ship, those changes included.
 
-Move to step 5 only after the user reports that `/code-review` has run and its findings are settled, or says to skip it. Do not proceed as though the pass happened when it did not.
+Always pass `high` as the effort level. Never pass `max` or `ultra` unless the user asks: those levels start many reviewer subagents and cost the most. Leave out `--fix` and `--comment`. Present its findings as a decision list, and apply them the same way as `diff-review`'s.
+
+Move to step 5 only after the `code-review` findings are settled. If the skill cannot run, say so and stop. Do not proceed as though the pass happened when it did not.
 
 Then list the pages the change touches, so the user can check them by hand without asking. Give each one as a full URL on this worktree's dev server port, with the role to sign in as and what to look for. When the change shows on no page, say so in one line.
 

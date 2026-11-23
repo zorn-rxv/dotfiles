@@ -22,6 +22,11 @@ mkdir -p "$scratch/bin" "$fake"
 
 # gh: `pr list --head <b>` reads fake/prs-<b with / as _>.json, `pr list
 # --author` reads fake/mine.json, and `pr checks <n>` reads fake/checks-<n>.json.
+# `pr list --head <b>` fails while fake/prs-<b>.fail exists. `pr checks <n>`
+# exits non-zero when a check is not passing, as gh does, and still prints its
+# JSON. With fake/checks-<n>.none, it says "no checks reported". With neither
+# file, it fails with an auth error. herdr: `agent list` fails while
+# fake/herdr.fail exists.
 # `pr view <ref>` records its ref in fake/pr-view-ref and reads
 # fake/pr-view.json. `repo view` reads fake/repo.json, and `api user` reads
 # fake/me.json.
@@ -38,9 +43,16 @@ case "$1 $2" in
       shift
     done
     if [ -n "$author" ]; then cat "$fake/mine.json" 2>/dev/null || echo '[]'
+    elif [ -e "$fake/prs-${head//\//_}.fail" ]; then echo 'HTTP 502' >&2; exit 1
     else cat "$fake/prs-${head//\//_}.json" 2>/dev/null || echo '[]'; fi
     ;;
-  'pr checks') cat "$fake/checks-$3.json" ;;
+  'pr checks')
+    if [ -e "$fake/checks-$3.json" ]; then
+      cat "$fake/checks-$3.json"
+      jq -e 'all(.[]; .bucket == "pass" or .bucket == "skipping")' "$fake/checks-$3.json" >/dev/null || exit 8
+    elif [ -e "$fake/checks-$3.none" ]; then echo "no checks reported on the 'x' branch" >&2; exit 1
+    else echo 'HTTP 401: Bad credentials' >&2; exit 1; fi
+    ;;
   'pr view') echo "$3" >"$fake/pr-view-ref"; cat "$fake/pr-view.json" ;;
   'repo view') cat "$fake/repo.json" ;;
   'api user') cat "$fake/me.json" ;;
@@ -50,7 +62,7 @@ FAKE
 cat >"$scratch/bin/herdr" <<'FAKE'
 #!/usr/bin/env bash
 case "$1 $2" in
-  'agent list') cat "$FAKE_DIR/agents.json" ;;
+  'agent list') [ ! -e "$FAKE_DIR/herdr.fail" ] || exit 1; cat "$FAKE_DIR/agents.json" ;;
   'workspace list') cat "$FAKE_DIR/workspaces.json" ;;
   *) printf 'unexpected herdr call: %s\n' "$*" >&2; exit 1 ;;
 esac
@@ -71,7 +83,7 @@ git -C "$primary" worktree add -q -b feature-a "$wt_path"
 head="$(git -C "$wt_path" rev-parse HEAD)"
 
 echo '{"result":{"agents":[]}}' >"$fake/agents.json"
-echo "{\"result\":{\"workspaces\":[{\"label\":\"feature a\",\"worktree\":{\"checkout_path\":\"$wt_path\"}}]}}" >"$fake/workspaces.json"
+echo "{\"result\":{\"workspaces\":[{\"label\":\"feature a\",\"workspace_id\":\"w7\",\"worktree\":{\"checkout_path\":\"$wt_path\"}}]}}" >"$fake/workspaces.json"
 
 failed=0
 check() {
@@ -86,6 +98,7 @@ preflight_pr() { (cd "$primary" && "$scripts/preflight.sh" --pr "$1") | jq -r "$
 printf 'worktree-status.sh\n'
 check "no PR is not releasable" "no pull request holds HEAD" "$(status '.[0].releasable')"
 check "the label comes from Herdr" "feature a" "$(status '.[0].label')"
+check "the workspace id comes from Herdr" "w7" "$(status '.[0].workspace_id')"
 
 echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
 echo '[{"bucket":"pass"},{"bucket":"fail"}]' >"$fake/checks-7.json"
@@ -126,13 +139,66 @@ check "a dirty tree is not releasable" "uncommitted changes" "$(status '.[0].rel
 rm "$wt_path/scratch.txt"
 
 echo "{\"result\":{\"agents\":[{\"name\":\"ql-1\",\"agent_status\":\"blocked\",\"cwd\":\"$wt_path/lib\"}]}}" >"$fake/agents.json"
-check "a blocked agent inside the worktree stops release" "agent is working or blocked" "$(status '.[0].releasable')"
+check "a blocked agent inside the worktree stops release" "agent is not idle" "$(status '.[0].releasable')"
 echo "{\"result\":{\"agents\":[{\"name\":\"ql-2\",\"agent_status\":\"working\",\"cwd\":\"${wt_path}b\"}]}}" >"$fake/agents.json"
 check "an agent in a sibling path does not count" "yes" "$(status '.[0].releasable')"
 echo '{"result":{"agents":[]}}' >"$fake/agents.json"
 
 echo '[{"number":3,"state":"MERGED","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
 check "a merged PR at another commit is not shown" "null" "$(status '.[0].pr')"
+echo '[]' >"$fake/prs-feature-a.json"
+
+# The primary checkout is detached mid-rebase, mid-bisect, or on a tag.
+git -C "$primary" checkout -q --detach
+check "a detached primary checkout keeps the first worktree" "feature-a" "$(status '.[0].branch')"
+git -C "$primary" checkout -q main
+
+# The pr column shows the open PR, but an older PR that holds HEAD still proves
+# GitHub has every commit, per ADR 0005.
+echo "[{\"number\":9,\"state\":\"OPEN\",\"headRefOid\":\"0000000\"},{\"number\":7,\"state\":\"CLOSED\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
+echo '[]' >"$fake/checks-9.json"
+check "a closed PR that holds HEAD makes it releasable" "yes" "$(status '.[0].releasable')"
+check "the open PR is the one shown" "9" "$(status '.[0].pr.number')"
+echo '[]' >"$fake/prs-feature-a.json"
+
+echo '[{"number":11,"state":"OPEN","headRefOid":"0000000"}]' >"$fake/prs-feature-a.json"
+check "a failed checks lookup reads unavailable" "unavailable" "$(status '.[0].checks')"
+touch "$fake/checks-11.none"
+check "a PR with no checks counts zero" "0" "$(status '.[0].checks.fail')"
+rm "$fake/checks-11.none"
+echo '[]' >"$fake/prs-feature-a.json"
+
+echo '{"result":{"agents":[{"name":"shell","agent_status":"idle","cwd":null}]}}' >"$fake/agents.json"
+check "an agent with no cwd does not break status" "[]" "$(status '.[0].agents | tostring')"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+
+# Herdr reports unknown when it cannot tell what an agent is doing.
+echo "[{\"number\":7,\"state\":\"OPEN\",\"headRefOid\":\"$head\"}]" >"$fake/prs-feature-a.json"
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-3\",\"agent_status\":\"idle\",\"cwd\":\"$wt_path\"}]}}" >"$fake/agents.json"
+check "an idle agent does not stop release" "yes" "$(status '.[0].releasable')"
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-3\",\"agent_status\":\"unknown\",\"cwd\":\"$wt_path\"}]}}" >"$fake/agents.json"
+check "an agent in an unknown state stops release" "agent is not idle" "$(status '.[0].releasable')"
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-3\",\"agent_status\":\"done\",\"cwd\":\"$wt_path\"}]}}" >"$fake/agents.json"
+check "a done agent does not stop release" "yes" "$(status '.[0].releasable')"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+echo '[]' >"$fake/prs-feature-a.json"
+
+# git still lists a worktree whose directory was deleted without
+# `git worktree prune`. Its row reports that, and the other rows still print.
+gone="$scratch/repo.gone"
+git -C "$primary" worktree add -q -b gone "$gone"
+rm -rf "$gone"
+check "a missing worktree directory is reported" "worktree directory missing" \
+  "$(status '.[] | select(.branch == "gone") | .releasable')"
+# Clean reads the row's agents, and its Herdr workspace can outlive the directory.
+echo "{\"result\":{\"agents\":[{\"name\":\"ql-4\",\"agent_status\":\"working\",\"cwd\":\"$gone\"}]}}" >"$fake/agents.json"
+check "a missing worktree directory still lists its agents" "working" \
+  "$(status '.[] | select(.branch == "gone") | .agents[0].status')"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+check "a missing worktree directory leaves the other rows" "feature-a" \
+  "$(status '.[] | select(.branch == "feature-a") | .branch')"
+git -C "$primary" worktree prune
+git -C "$primary" branch -q -D gone
 
 printf 'preflight.sh\n'
 check "a new branch is clear" "clear feature-b" "$(preflight feature-b ql-9 QL-9)"
@@ -168,6 +234,47 @@ git -C "$primary" push -q origin main:refs/heads/feature-c
 check "a branch name taken on GitHub needs a rename" "rename feature-c" "$(preflight feature-c ql-9 QL-9)"
 echo '[{"number":2}]' >"$fake/prs-feature-d.json"
 check "a branch name with an old PR needs a rename" "rename feature-d" "$(preflight feature-d ql-9 QL-9)"
+# git ls-remote matches a pattern against the tail of each ref.
+git -C "$primary" push -q origin main:refs/heads/alice/fix-login
+check "a remote branch that only ends in the name does not take it" "clear fix-login" "$(preflight fix-login ql-9 QL-9)"
+
+# A re-dispatch can derive the same slug as a released PR's branch.
+git -C "$primary" branch same-slug "$head"
+git -C "$scratch/teammate" push -q origin "$pushed:refs/heads/same-slug"
+echo '[{"number":21,"headRefName":"same-slug"}]' >"$fake/mine.json"
+check "a released PR on the planned branch resumes" "resume same-slug true" \
+  "$( (cd "$primary" && "$scripts/preflight.sh" same-slug ql-7 QL-7) | jq -r '"\(.verdict) \(.branch) \(.fast_forward)"')"
+git -C "$primary" branch -q -D same-slug
+git -C "$scratch/teammate" push -q origin :refs/heads/same-slug
+echo '[]' >"$fake/mine.json"
+
+# The planned branch's worktree means the work item is still being worked on,
+# even with its agent gone, so a released PR on another branch must not resume.
+echo '[{"number":24,"headRefName":"released-c"}]' >"$fake/mine.json"
+check "a released PR beside a worktree on the planned branch is skipped" "skip feature-a" "$(preflight feature-a ql-7 QL-7)"
+echo '[]' >"$fake/mine.json"
+
+echo '[{"number":22,"headRefName":"released-a"},{"number":23,"headRefName":"released-b"}]' >"$fake/mine.json"
+check "two resumable open PRs for one work item are skipped" "skip 2 open PRs of mine name QL-7; release or close all but one" \
+  "$( (cd "$primary" && "$scripts/preflight.sh" feature-b ql-7 QL-7) | jq -r '"\(.verdict) \(.reason)"')"
+echo '[{"number":22,"headRefName":"released-a"},{"number":23,"headRefName":"feature-a"}]' >"$fake/mine.json"
+check "a second open PR with a worktree is skipped" "skip open PR #23 names QL-7 and its worktree exists" \
+  "$( (cd "$primary" && "$scripts/preflight.sh" feature-b ql-7 QL-7) | jq -r '"\(.verdict) \(.reason)"')"
+echo '[]' >"$fake/mine.json"
+
+# A failed lookup must stop preflight, never read as "nothing found". Each case
+# runs once with the failure and once without, so only the failure can explain
+# the abort.
+runs() { (cd "$primary" && "$scripts/preflight.sh" "$@") >/dev/null 2>&1 && echo ok || echo abort; }
+with_marker() { local marker="$1"; shift; touch "$fake/$marker"; runs "$@"; rm "$fake/$marker"; }
+check "a failed Herdr lookup aborts preflight" "abort ok" \
+  "$(with_marker herdr.fail feature-b ql-6 QL-6) $(runs feature-b ql-6 QL-6)"
+check "a failed old-PR lookup aborts preflight" "abort ok" \
+  "$(with_marker prs-feature-e.fail feature-e ql-6 QL-6) $(runs feature-e ql-6 QL-6)"
+echo '{}' >"$fake/agents.json"
+malformed="$(runs feature-b ql-6 QL-6)"
+echo '{"result":{"agents":[]}}' >"$fake/agents.json"
+check "a Herdr reply with no agents list aborts preflight" "abort ok" "$malformed $(runs feature-b ql-6 QL-6)"
 
 printf 'preflight.sh --pr\n'
 echo '{"nameWithOwner":"acme/app"}' >"$fake/repo.json"
@@ -209,5 +316,8 @@ check "a URL that differs from the repo only in case launches" "pr" "$(preflight
 
 pr_view 17 released-w me MERGED false https://github.com/acme/app/pull/17
 check "a PR that is not open is refused" "refuse" "$(preflight_pr 17 .verdict)"
+
+pr_view 12 released-x me OPEN false https://github.com/acme/app/pull/12
+check "a failed Herdr lookup aborts a PR row" "abort ok" "$(with_marker herdr.fail --pr 12) $(runs --pr 12)"
 
 exit "$failed"

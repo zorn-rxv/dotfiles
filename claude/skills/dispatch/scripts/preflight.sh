@@ -19,11 +19,17 @@
 #              origin before the launch
 #
 # The verdicts follow Launch step 4 of the dispatch skill:
-#   skip    the branch or its worktree exists here, an agent already has the
-#           name, or an open PR of mine names the work item and has a worktree
-#           or a local branch with commits origin lacks
-#   resume  an open PR of mine names the work item, with no worktree and no
-#           live agent of that name, so it was released
+#   skip    any one of these:
+#           - an agent already has the name
+#           - an open PR of mine names the work item and has a worktree here
+#           - an open PR of mine names the work item, and its local branch has
+#             commits origin lacks
+#           - more than one open PR of mine names the work item and was released
+#           - the planned branch or its worktree exists here, unless it is the
+#             one released PR's own branch
+#   resume  exactly one open PR of mine names the work item, with no worktree
+#           and no live agent of that name, so it was released. Its branch
+#           may still exist here, even under the planned name.
 #   rename  the planned branch name is taken on GitHub by an earlier branch or PR
 #   clear   none of the above
 #
@@ -62,7 +68,13 @@ leftover() {
   elif git merge-base --is-ancestor "refs/heads/$1" "refs/remotes/origin/$1" 2>/dev/null; then echo behind
   else echo ahead; fi
 }
-agent_live() { herdr agent list | jq -e --arg a "$1" 'any(.result.agents[]; .name == $a)' >/dev/null; }
+# Read Herdr once, outside any condition. Inside an `if`, set -e does not fire.
+# A failed lookup would then read as "no such agent", and dispatch would launch
+# a second agent onto the work.
+agents_json="$(herdr agent list)"
+# A zero exit with no agents array would read the same way, so it aborts too.
+jq -e '.result.agents | type == "array"' <<<"$agents_json" >/dev/null
+agent_live() { jq -e --arg a "$1" 'any(.result.agents[]; .name == $a)' <<<"$agents_json" >/dev/null; }
 
 if [ -n "$pr_ref" ]; then
   pr="$(gh pr view "$pr_ref" --json number,url,state,headRefName,isCrossRepository,title,author)"
@@ -109,25 +121,47 @@ fi
 # keeps a teammate's PR that names the same task from being resumed.
 my_prs="$(gh pr list --state open --author @me --search "\"$term\" in:body" --json number,headRefName)"
 
+# Assign these outside any condition, so a failed lookup aborts. Inside the
+# condition, it would read as "the name is unused".
+# A bare name matches any ref that ends in it, such as alice/<branch>.
+remote_head="$(git ls-remote --heads origin "refs/heads/$branch")"
+old_pr_count="$(gh pr list --head "$branch" --state all --json number | jq length)"
+
 verdict=clear reason="" launch="$branch" fast_forward=false
 
-if branch_taken "$branch"; then
-  verdict=skip reason="branch $branch already exists here"
-elif agent_live "$agent"; then
-  verdict=skip reason="an agent named $agent is already live"
-elif [ "$(jq length <<<"$my_prs")" -gt 0 ]; then
-  number="$(jq -r '.[0].number' <<<"$my_prs")"
-  head_ref="$(jq -r '.[0].headRefName' <<<"$my_prs")"
-  if has_worktree "$head_ref"; then
-    verdict=skip reason="open PR #$number names $term and its worktree exists"
-  elif [ "$(leftover "$head_ref")" = ahead ]; then
-    verdict=skip reason="open PR #$number names $term, but local branch $head_ref has commits origin lacks"
+# Read every open PR, not only the first. Any one that is still dispatched
+# here skips the row, and more than one released PR leaves no single branch
+# to resume.
+dispatched_reason="" resumable=0 number="" head_ref=""
+while read -r n ref; do
+  [ -n "$ref" ] || continue
+  if has_worktree "$ref"; then
+    dispatched_reason="open PR #$n names $term and its worktree exists"
+  elif [ "$(leftover "$ref")" = ahead ]; then
+    dispatched_reason="open PR #$n names $term, but local branch $ref has commits origin lacks"
   else
-    [ "$(leftover "$head_ref")" = behind ] && fast_forward=true
-    verdict=resume reason="open PR #$number names $term and was released; the resumed worktree gets new databases" launch="$head_ref"
+    resumable=$((resumable + 1)) number="$n" head_ref="$ref"
   fi
-elif [ -n "$(git ls-remote --heads origin "$branch")" ] ||
-  [ "$(gh pr list --head "$branch" --state all --json number | jq length)" -gt 0 ]; then
+done <<<"$(jq -r '.[] | "\(.number) \(.headRefName)"' <<<"$my_prs")"
+
+# Open PRs come before the planned branch. A plain wt remove keeps the local
+# branch, and a re-dispatch can derive the same slug. So the planned branch
+# can belong to a released PR that should resume. Under any other name, it
+# means the work item is still being worked on here.
+if agent_live "$agent"; then
+  verdict=skip reason="an agent named $agent is already live"
+elif [ -n "$dispatched_reason" ]; then
+  verdict=skip reason="$dispatched_reason"
+elif [ "$resumable" -gt 1 ]; then
+  verdict=skip reason="$resumable open PRs of mine name $term; release or close all but one"
+elif [ "$resumable" -eq 1 ] && [ "$branch" != "$head_ref" ] && branch_taken "$branch"; then
+  verdict=skip reason="branch $branch already exists here, beside released PR #$number"
+elif [ "$resumable" -eq 1 ]; then
+  [ "$(leftover "$head_ref")" = behind ] && fast_forward=true
+  verdict=resume reason="open PR #$number names $term and was released; the resumed worktree gets new databases" launch="$head_ref"
+elif branch_taken "$branch"; then
+  verdict=skip reason="branch $branch already exists here"
+elif [ -n "$remote_head" ] || [ "$old_pr_count" -gt 0 ]; then
   verdict=rename reason="$branch is taken on GitHub by an earlier branch or PR; pick another slug"
 fi
 

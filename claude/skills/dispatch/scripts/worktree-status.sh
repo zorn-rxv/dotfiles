@@ -11,17 +11,23 @@
 # commit is missing here. It changes nothing else. Each row:
 #
 #   label       the Herdr workspace label, or null
+#   workspace_id  the Herdr workspace id, or null. Labels can repeat, so
+#               Release and Clean close a workspace by this id.
 #   branch      the worktree's branch
 #   path        the worktree's path
-#   head        the worktree's HEAD commit
+#   head        the worktree's HEAD commit, or null when its directory is gone
 #   agents      [{name, status}] for every Herdr agent whose cwd is inside it
 #   pr          {number, state, holds_head} or null. The open PR, else one
 #               that holds HEAD: its head is HEAD or a descendant of it. A
 #               merged PR that does not hold HEAD belongs to an earlier branch
 #               with the same name, so it is not shown.
-#   checks      {pass, fail, pending, skipping, cancel} counts, or null
-#   dirty       the number of `git status --porcelain` lines
-#   releasable  "yes", or the first reason Release would refuse it
+#   checks      {pass, fail, pending, skipping, cancel} counts, "unavailable"
+#               when the lookup failed, or null with no PR
+#   dirty       the number of `git status --porcelain` lines, or null when its
+#               directory is gone
+#   releasable  "yes", or the first reason Release would refuse it. Only an
+#               idle or done agent counts as idle. Any other status, such as
+#               unknown, blocks a release.
 
 set -euo pipefail
 
@@ -30,13 +36,14 @@ only="${1:-}"
 agents_json="$(herdr agent list)"
 workspaces_json="$(herdr workspace list)"
 
-# `git worktree list --porcelain` prints the primary checkout first; skip it.
-# A detached worktree has no branch line, and dispatch never makes one.
+# `git worktree list --porcelain` prints the primary checkout first. Skip its
+# record by position. A detached primary prints no branch line, so skipping
+# the first printed row would drop a linked worktree instead. A detached
+# linked worktree has no branch line either, and dispatch never makes one.
 # macOS ships bash 3.2, which has no mapfile, so read the rows from a variable.
 rows="$(
   git worktree list --porcelain |
-    awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}' |
-    tail -n +2
+    awk '/^worktree /{n++; p=substr($0,10)} /^branch /{if (n > 1) {b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}}'
 )"
 
 out="[]"
@@ -44,15 +51,29 @@ while IFS=$'\t' read -r path branch; do
   [ -n "$path" ] || continue
   [ -z "$only" ] || [ "$branch" = "$only" ] || continue
 
+  workspace="$(jq --arg p "$path" '[.result.workspaces[] | select(.worktree.checkout_path == $p)][0]' <<<"$workspaces_json")"
+  label="$(jq '.label // null' <<<"$workspace")"
+  workspace_id="$(jq '.workspace_id // null' <<<"$workspace")"
+
+  # Match on a path boundary, so /repo.feature-a does not claim /repo.feature-ab's
+  # agent. Herdr can report a null cwd, and startswith fails on null.
+  agents="$(jq --arg p "$path" '[.result.agents[]
+      | select((.cwd // "") as $c | $c == $p or ($c | startswith($p + "/")))
+      | {name, status: .agent_status}]' <<<"$agents_json")"
+
+  # git still lists a directory deleted without `git worktree prune`. git -C
+  # fails on it, and under set -e the script would print no rows at all. Its
+  # Herdr workspace can outlive it, so the row still lists its agents.
+  if [ ! -d "$path" ]; then
+    out="$(jq --argjson label "$label" --argjson ws "$workspace_id" --arg branch "$branch" --arg path "$path" \
+      --argjson agents "$agents" \
+      '. + [{label: $label, workspace_id: $ws, branch: $branch, path: $path, head: null, agents: $agents,
+             pr: null, checks: null, dirty: null, releasable: "worktree directory missing"}]' <<<"$out")"
+    continue
+  fi
+
   head="$(git -C "$path" rev-parse HEAD)"
   dirty="$(git -C "$path" status --porcelain | wc -l | tr -d ' ')"
-
-  label="$(jq --arg p "$path" '[.result.workspaces[] | select(.worktree.checkout_path == $p) | .label][0]' <<<"$workspaces_json")"
-
-  # Match on a path boundary, so /repo.feature-a does not claim /repo.feature-ab's agent.
-  agents="$(jq --arg p "$path" '[.result.agents[]
-      | select(.cwd == $p or (.cwd | startswith($p + "/")))
-      | {name, status: .agent_status}]' <<<"$agents_json")"
 
   # Ancestry, not equality: a teammate can push to a PR under review and leave
   # the worktree behind. Fetch a missing head from refs/pull/<n>/head, because
@@ -76,23 +97,33 @@ while IFS=$'\t' read -r path branch; do
   checks=null
   number="$(jq -r '.number // empty' <<<"$pr")"
   if [ -n "$number" ]; then
-    # gh exits non-zero when a check failed or is pending; the JSON is still complete.
-    checks="$(gh pr checks "$number" --json bucket 2>/dev/null || true)"
-    checks="$(jq 'reduce .[] as $c ({pass: 0, fail: 0, pending: 0, skipping: 0, cancel: 0}; .[$c.bucket] += 1)' <<<"${checks:-[]}")"
+    # gh exits non-zero when a check failed or is pending, but its JSON is
+    # still complete. A failed lookup prints no JSON. It reads "unavailable",
+    # not zero failures. "no checks reported" is a real zero.
+    checks_err="$(mktemp)"
+    checks_raw="$(gh pr checks "$number" --json bucket 2>"$checks_err" || true)"
+    if grep -q 'no checks reported' "$checks_err"; then checks_raw='[]'; fi
+    rm -f "$checks_err"
+    if jq -e 'type == "array"' <<<"$checks_raw" >/dev/null 2>&1; then
+      checks="$(jq 'reduce .[] as $c ({pass: 0, fail: 0, pending: 0, skipping: 0, cancel: 0}; .[$c.bucket] += 1)' <<<"$checks_raw")"
+    else
+      checks='"unavailable"'
+    fi
   fi
 
-  # Release's three checks, in the order the skill lists them.
-  releasable="$(jq -n --argjson pr "$pr" --argjson agents "$agents" --arg dirty "$dirty" '
-      if $pr == null or ($pr.holds_head | not) then "no pull request holds HEAD"
+  # Release's three checks, in the order the skill lists them. Any PR that
+  # holds HEAD counts, not only the one the pr column shows.
+  releasable="$(jq -n --argjson held "$held" --argjson agents "$agents" --arg dirty "$dirty" '
+      if ($held | length) == 0 then "no pull request holds HEAD"
       elif $dirty != "0" then "uncommitted changes"
-      elif any($agents[]; .status == "working" or .status == "blocked") then "agent is working or blocked"
+      elif any($agents[]; .status != "idle" and .status != "done") then "agent is not idle"
       else "yes" end')"
 
   out="$(jq \
-    --argjson label "$label" --arg branch "$branch" --arg path "$path" --arg head "$head" \
+    --argjson label "$label" --argjson ws "$workspace_id" --arg branch "$branch" --arg path "$path" --arg head "$head" \
     --argjson agents "$agents" --argjson pr "$pr" --argjson checks "$checks" \
     --argjson dirty "$dirty" --argjson releasable "$releasable" \
-    '. + [{label: $label, branch: $branch, path: $path, head: $head, agents: $agents,
+    '. + [{label: $label, workspace_id: $ws, branch: $branch, path: $path, head: $head, agents: $agents,
            pr: $pr, checks: $checks, dirty: $dirty, releasable: $releasable}]' <<<"$out")"
 done <<<"$rows"
 

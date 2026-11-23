@@ -61,7 +61,7 @@ Run a quick readiness check now, so Phase 1 asks only for permissions that are a
 - Do the pinned versions match what's installed? (`asdf current` / `mise current` vs `.tool-versions`)
 - Is Sobelow available: in `mix.exs` deps, as `sobelow` on `PATH`, or at `~/.mix/escripts/sobelow`?
 - Is a local database reachable for tests? (`pg_isready`, or the MySQL/SQLite equivalent for the configured Ecto adapter)
-- Is the test database separate? Read the Repo config in `config/test.exs` and `config/runtime.exs`, and the `test` alias in `mix.exs`. The test database must be local, and its name must differ from the dev and production ones. An environment variable such as `DATABASE_URL` can override the config, so check it too.
+- Is the test database separate? Read the Repo config in `config/test.exs` and `config/runtime.exs`, and the `test` alias in `mix.exs`. The test database must be local, and its name must differ from the dev and production ones. An environment variable such as `DATABASE_URL` can override the config. Check whether it is set, but never print the whole URL, because it holds the password. `printenv DATABASE_URL | sed -E 's#//[^@/]*@#//#'` shows the host and database name without the credentials.
 - Where does the report go? The report root is the project root. In a linked worktree it is the main worktree's root instead, the first path `git worktree list` prints, because removing a worktree deletes its ignored files and the report with them.
 - In a git project, is the report already ignored there? Check with `git -C <report-root> check-ignore -q -- security_audit_YYYY-MM-DD.md`, with today's date.
 
@@ -100,7 +100,7 @@ Read `references/intake.md`. Inspect the project first, then ask everything in *
   - "download dependencies (`mix deps.get`)", if `deps/` is missing
   - "temporarily use a different installed Elixir version, without changing your files", if the pinned versions aren't installed
   - "install Sobelow" (as a project dependency, or as a standalone tool in `~/.mix`), if it isn't available
-  - "run small automated tests locally to confirm a finding". Ask always. If the readiness check confirmed a separate local test database, mention that tests use it and don't touch the dev data. If it could not confirm one, say so, and confirm findings by reading the code or with tests that need no database.
+  - "run small automated tests locally to confirm a finding". Ask always. If the readiness check confirmed a separate local test database, mention that tests use it and don't touch the dev data. If it could not confirm one, say so, and confirm findings by reading the code only. Do not run `mix test` then. It runs the project's `test` alias, which can create and migrate the configured database even for a test that needs none.
   - "add the audit report file to `.gitignore` so it isn't committed by accident", if the project uses git and the report file isn't already ignored
 
   Anything they decline, skip, and note the gap in the report.
